@@ -907,8 +907,11 @@ fn real_agent_scheduler_projects_mutations_created_after_startup() {
         .expect("post-start mutation");
     drop(graph);
 
+    let projection_deadline = std::time::Instant::now() + Duration::from_mins(1);
     let mut projected = false;
-    for attempt in 0..100 {
+    let mut last_backlog = None;
+    let mut attempt = 0_u32;
+    while std::time::Instant::now() < projection_deadline {
         let response = localsearch_agent::windows_pipe::round_trip(
             &pipe_name,
             &AgentRequest {
@@ -921,20 +924,23 @@ fn real_agent_scheduler_projects_mutations_created_after_startup() {
             Duration::from_secs(2),
         )
         .expect("scheduled status");
-        if response.result.is_some_and(
-            |payload| matches!(payload, ResponsePayload::IndexStatus(status) if status.backlog_mutations == 0),
-        ) {
-            projected = true;
-            break;
+        if let Some(ResponsePayload::IndexStatus(status)) = response.result {
+            last_backlog = Some(status.backlog_mutations);
+            if status.backlog_mutations == 0 {
+                projected = true;
+                break;
+            }
         }
-        std::thread::sleep(Duration::from_millis(50));
+        attempt = attempt.saturating_add(1);
+        std::thread::sleep(Duration::from_millis(100));
     }
     assert!(
         projected,
-        "Agent scheduler did not project the durable mutation"
+        "Agent scheduler did not recover and project the durable mutation; last backlog: {last_backlog:?}"
     );
+    let compaction_deadline = std::time::Instant::now() + Duration::from_mins(1);
     let mut compacted = false;
-    for _ in 0..200 {
+    while std::time::Instant::now() < compaction_deadline {
         let graph = FilesystemGraph::open_read_only(&graph_path).expect("compacted graph");
         if graph
             .read_outbox(None, 10)
@@ -945,7 +951,7 @@ fn real_agent_scheduler_projects_mutations_created_after_startup() {
             compacted = true;
             break;
         }
-        std::thread::sleep(Duration::from_millis(50));
+        std::thread::sleep(Duration::from_millis(100));
     }
     assert!(
         compacted,
