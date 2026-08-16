@@ -38,7 +38,7 @@ if ($Running.Count -gt 0) {
 & cargo build --manifest-path (Join-Path $Repository 'Cargo.toml') --release --locked `
     -p localsearch-agent --bin localsearch-agent --bin localsearch-cli `
     -p localsearch-content-index --bin localsearch-content-index `
-    -p localsearch-desktop --bin localsearch-desktop `
+    -p localsearch-desktop --bin localsearch-desktop --example ux_action_probe `
     -p localsearch-ux-fixture --bin localsearch-ux-fixture
 if ($LASTEXITCODE -ne 0) {
     throw "Release bundle build failed with exit code $LASTEXITCODE"

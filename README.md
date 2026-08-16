@@ -18,6 +18,8 @@ and UX evidence remain conditional. No prebuilt release artifact is published ye
 Transactional Windows repair/upgrade rollback and its disposable-VM evidence runner are implemented.
 The unified LOAD-GATE-001 runner now measures catalog/content SLA, forced Agent recovery,
 graph/catalog convergence, and bounded graph/content storage in one 15-minute workload.
+The UX-ACTION-GATE-001 wrapper binds real NTFS rename/move/delete/offline action evidence to the
+exact hashed release binaries and emits a path/identity-free verdict.
 
 ## Build and verify
 

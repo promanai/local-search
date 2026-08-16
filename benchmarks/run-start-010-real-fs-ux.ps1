@@ -2,11 +2,13 @@
 param(
     [string]$Volume = 'L:\',
     [string]$OutputDirectory = 'reports/ux/start-010-u',
-    [string]$VhdxPath = ''
+    [string]$VhdxPath = '',
+    [string]$BuildManifest = '.lab/start-010-load-bundle.json'
 )
 
 $ErrorActionPreference = 'Stop'
 $Repository = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+Import-Module (Join-Path $PSScriptRoot 'Start010LoadProvenance.psm1') -Force
 $Timestamp = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')
 $RunRoot = Join-Path $Repository ".lab\start-010-u-$Timestamp"
 $StatePath = Join-Path $RunRoot 'fixture-state.json'
@@ -30,6 +32,8 @@ if (-not $Principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 if ((git -C $Repository status --porcelain)) {
     throw 'START-010-U requires a clean repository before fixture creation'
 }
+$EvidenceCommit = (git -C $Repository rev-parse HEAD).Trim()
+$BuildProvenance = Test-Start010LoadBundle -Repository $Repository -ManifestPath $BuildManifest -ExpectedCommit $EvidenceCommit
 if ($Volume -notmatch '^[D-Zd-z]:[\\/]$') {
     throw 'Volume must be an explicit non-system drive root such as L:\'
 }
@@ -260,6 +264,7 @@ try {
         timestamp_utc = $Timestamp
         git_commit = $Commit
         dirty_tree = $Dirty
+        binary_provenance = $BuildProvenance
         volume = $Volume
         provider = 'windows_fs_usn_journal'
         fixture = [ordered]@{

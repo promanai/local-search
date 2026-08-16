@@ -1,6 +1,6 @@
 # START-010-U — Real Filesystem UX Fixture
 
-Status: **IMPLEMENTED — LIVE ACCEPTANCE PENDING**
+Status: **IMPLEMENTED — PROVENANCE/VERDICT CONTRACT PASS; LIVE ACCEPTANCE PENDING**
 
 `START-010-U` is an isolated evidence stage for the existing Desktop client. It creates actual
 files on the explicitly selected `LS_TEST` NTFS volume and exercises the production path:
@@ -19,8 +19,8 @@ named `localsearch-ux-fixture-{run_id}`. The optional detach/reattach step accep
 `.vhdx` below the repository `.lab` directory.
 
 All durable fixture databases, logs, and intermediate reports live below the unique run directory.
-The runner rejects a dirty repository, a non-elevated shell, missing release executables, and an
-already-running release Desktop process.
+The runner rejects a dirty repository, a non-elevated shell, missing or provenance-mismatched
+release executables, and an already-running release Desktop process.
 
 ## Proved invariants
 
@@ -48,14 +48,11 @@ eventual search removal, offline/online transitions, and cleanup.
 
 ## Operator run
 
-Build the exact release tools from a clean candidate commit:
+Build and hash the exact release tools from a clean candidate commit in a normal non-elevated
+PowerShell:
 
 ```powershell
-cargo build --release --locked `
-  -p localsearch-agent `
-  -p localsearch-desktop `
-  -p localsearch-ux-fixture `
-  --bins --examples
+.\benchmarks\prepare-start-010-load.ps1
 ```
 
 Close the resident LocalSearch Desktop, open PowerShell as Administrator, and run the full VHDX
@@ -63,14 +60,16 @@ matrix:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File .\benchmarks\run-start-010-real-fs-ux.ps1 `
+  -File .\benchmarks\invoke-ux-action-gate.ps1 `
   -Volume 'L:\' `
-  -VhdxPath 'C:\Projects\local_search\.lab\localsearch-usn-test.vhdx'
+  -VhdxPath 'C:\Projects\local_search\.lab\localsearch-usn-test.vhdx' `
+  -ConfirmDisposableVolume
 ```
 
-Omitting `-VhdxPath` runs the long-name, rename, move, delete, and cleanup matrix without claiming
-physical offline-volume evidence. A `START-010-U-PASS` tag requires the full VHDX report with
-`offline_volume.pass = true`, `acceptance.pass = true`, and `dirty_tree = false`.
+The lower-level runner can still omit `-VhdxPath` for development, but the release gate cannot. A
+`START-010-U-PASS` tag requires the full VHDX source report and redacted verdict with
+`offline_volume.pass = true`, `acceptance.pass = true`, verified binary provenance, and
+`dirty_tree = false`.
 
 ## Gate boundary
 

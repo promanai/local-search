@@ -52,7 +52,7 @@ try {
 
     $Verified = Test-Start010LoadBundle -Repository $Root -ManifestPath $ManifestPath `
         -ExpectedCommit $Commit
-    if (-not $Verified.verified -or $Verified.executables.Count -ne 5) {
+    if (-not $Verified.verified -or $Verified.executables.Count -ne 6) {
         throw 'Valid release bundle did not pass provenance verification'
     }
 

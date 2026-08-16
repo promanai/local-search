@@ -129,6 +129,10 @@ jobs:
         shell: powershell
         run: .\benchmarks\test-load-gate-contract.ps1
 
+      - name: Test UX-ACTION-GATE-001 contracts
+        shell: powershell
+        run: .\benchmarks\test-ux-action-gate-contract.ps1
+
       - name: Test Windows package contracts
         shell: powershell
         run: .\packaging\test-windows-package.ps1
