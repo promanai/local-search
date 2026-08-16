@@ -7,6 +7,7 @@ param(
     [string]$BrokerPipe = '\\.\pipe\LocalSearch\WinFS\v1\default',
     [string[]]$ObserveRoot = @(),
     [switch]$EnableBrokerObservation,
+    [switch]$AllowElevatedMetadataDevelopmentMode,
     [switch]$EnableContent,
     [switch]$AllowUnsignedDevelopmentBundle,
     [switch]$PlanOnly
@@ -19,6 +20,7 @@ $Manifest = Test-LocalSearchBundle -BundlePath $BundlePath `
 $Plan = New-LocalSearchInstallPlan -BundlePath $BundlePath -InstallRoot $InstallRoot `
     -StateRoot $StateRoot -AuthorizedLogonSid $AuthorizedLogonSid -BrokerPipe $BrokerPipe `
     -ObserveRoot $ObserveRoot -EnableBrokerObservation:$EnableBrokerObservation `
+    -AllowElevatedMetadataDevelopmentMode:$AllowElevatedMetadataDevelopmentMode `
     -EnableContent:$EnableContent
 if ($PlanOnly) {
     $Plan | Add-Member -NotePropertyName signature_required `

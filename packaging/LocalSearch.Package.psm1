@@ -205,6 +205,7 @@ function New-LocalSearchInstallPlan {
         [string]$BrokerPipe = '\\.\pipe\LocalSearch\WinFS\v1\default',
         [string[]]$ObserveRoot = @(),
         [switch]$EnableBrokerObservation,
+        [switch]$AllowElevatedMetadataDevelopmentMode,
         [switch]$EnableContent
     )
     $Bundle = (Resolve-Path -LiteralPath $BundlePath).Path
@@ -218,6 +219,12 @@ function New-LocalSearchInstallPlan {
     }
     if (-not $EnableBrokerObservation -and $Roots.Count -gt 0) {
         throw 'ObserveRoot requires EnableBrokerObservation'
+    }
+    if ($EnableBrokerObservation -and -not $AllowElevatedMetadataDevelopmentMode) {
+        throw 'Elevated broker observation is excluded from the v0.1 public security boundary; use AllowElevatedMetadataDevelopmentMode only for controlled engineering evidence'
+    }
+    if (-not $EnableBrokerObservation -and $AllowElevatedMetadataDevelopmentMode) {
+        throw 'AllowElevatedMetadataDevelopmentMode requires EnableBrokerObservation'
     }
     # Keep the package layout identical to the content workspace layout so metadata observation,
     # catalog projection, and explicitly scoped content projection share one authoritative graph.
@@ -234,13 +241,19 @@ function New-LocalSearchInstallPlan {
         '--windows-service', '--pipe', $Pipe, '--authorized-logon-sid', $Sid
     )
     return [pscustomobject][ordered]@{
-        schema_version = 1
+        schema_version = 2
         product = 'LocalSearch'
         bundle_root = $Bundle
         install_root = $Install
         state_root = $State
         owner_sid = $Sid
         broker_enabled = [bool]$EnableBrokerObservation
+        metadata_visibility_policy = if ($EnableBrokerObservation) {
+            'development-elevated-single-sid'
+        } else {
+            'current-user-token-only'
+        }
+        public_release_eligible = (-not [bool]$EnableBrokerObservation)
         content_enabled = [bool]$EnableContent
         observed_roots = @($Roots)
         service = [pscustomobject][ordered]@{

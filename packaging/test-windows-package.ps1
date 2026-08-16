@@ -85,11 +85,32 @@ try {
         New-LocalSearchInstallPlan -BundlePath $Bundle -InstallRoot $Install -StateRoot $State `
             -AuthorizedLogonSid $Sid -EnableBrokerObservation
     } 'Broker observation without explicit roots passed planning'
+    Assert-Fails {
+        New-LocalSearchInstallPlan -BundlePath $Bundle -InstallRoot $Install -StateRoot $State `
+            -AuthorizedLogonSid $Sid -EnableBrokerObservation -ObserveRoot $VolumeRoot
+    } 'Elevated metadata observation entered the public release boundary'
+    Assert-Fails {
+        New-LocalSearchInstallPlan -BundlePath $Bundle -InstallRoot $Install -StateRoot $State `
+            -AuthorizedLogonSid $Sid -AllowElevatedMetadataDevelopmentMode
+    } 'Elevated metadata development override was accepted without broker observation'
     $Plan = New-LocalSearchInstallPlan -BundlePath $Bundle -InstallRoot $Install -StateRoot $State `
-        -AuthorizedLogonSid $Sid -EnableBrokerObservation -ObserveRoot $VolumeRoot -EnableContent
+        -AuthorizedLogonSid $Sid -EnableBrokerObservation -ObserveRoot $VolumeRoot `
+        -AllowElevatedMetadataDevelopmentMode -EnableContent
     Assert-Equal $VolumeRoot $Plan.observed_roots[0] 'Observed volume root was not preserved'
     Assert-True ($Plan.agent.arguments -contains '--content-index') `
         'Content index was not included in the Agent plan'
+    Assert-Equal 'development-elevated-single-sid' $Plan.metadata_visibility_policy `
+        'Broker plan did not disclose its development-only metadata policy'
+    Assert-Equal $false $Plan.public_release_eligible `
+        'Broker plan was incorrectly marked eligible for public release'
+
+    $PublicPlan = New-LocalSearchInstallPlan -BundlePath $Bundle -InstallRoot $Install `
+        -StateRoot $State -AuthorizedLogonSid $Sid -EnableContent
+    Assert-Equal 2 $PublicPlan.schema_version 'Install plan schema was not upgraded'
+    Assert-Equal 'current-user-token-only' $PublicPlan.metadata_visibility_policy `
+        'Public plan did not select current-user metadata isolation'
+    Assert-Equal $true $PublicPlan.public_release_eligible `
+        'Current-user-only plan was not eligible for public release'
 
     Assert-Equal '""' (ConvertTo-LocalSearchCommandArgument -Value '') `
         'Empty command argument quoting is wrong'
@@ -142,6 +163,19 @@ try {
         & (Join-Path $PSScriptRoot 'install-windows.ps1') -BundlePath $Bundle `
             -InstallRoot $Install -StateRoot $State -AuthorizedLogonSid $Sid -PlanOnly
     } 'Installer accepted an unsigned bundle without the explicit development exception'
+    Assert-Fails {
+        & (Join-Path $PSScriptRoot 'install-windows.ps1') -BundlePath $Bundle `
+            -InstallRoot $Install -StateRoot $State -AuthorizedLogonSid $Sid `
+            -AllowUnsignedDevelopmentBundle -EnableBrokerObservation -ObserveRoot $VolumeRoot `
+            -PlanOnly
+    } 'Installer exposed elevated metadata through a public-eligible plan'
+    $BrokerPlanJson = & (Join-Path $PSScriptRoot 'install-windows.ps1') -BundlePath $Bundle `
+        -InstallRoot $Install -StateRoot $State -AuthorizedLogonSid $Sid `
+        -AllowUnsignedDevelopmentBundle -EnableBrokerObservation -ObserveRoot $VolumeRoot `
+        -AllowElevatedMetadataDevelopmentMode -PlanOnly
+    $BrokerPlan = $BrokerPlanJson | ConvertFrom-Json
+    Assert-Equal $false $BrokerPlan.public_release_eligible `
+        'Installer development override did not make release ineligibility visible'
 
     foreach ($Retention in @('KeepIndexes', 'RemoveIndexes')) {
         $UninstallPlanJson = & (Join-Path $PSScriptRoot 'uninstall-windows.ps1') `
