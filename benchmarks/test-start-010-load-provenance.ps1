@@ -3,7 +3,12 @@ param()
 
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'Start010LoadProvenance.psm1') -Force
-$Scripts = @('prepare-start-010-load.ps1', 'run-start-010-load.ps1')
+$Scripts = @(
+    'prepare-start-010-load.ps1',
+    'run-start-010-load.ps1',
+    'invoke-load-gate.ps1',
+    'LoadGateContract.psm1'
+)
 foreach ($Script in $Scripts) {
     $Tokens = $null
     $Errors = $null
@@ -47,7 +52,7 @@ try {
 
     $Verified = Test-Start010LoadBundle -Repository $Root -ManifestPath $ManifestPath `
         -ExpectedCommit $Commit
-    if (-not $Verified.verified -or $Verified.executables.Count -ne 4) {
+    if (-not $Verified.verified -or $Verified.executables.Count -ne 5) {
         throw 'Valid release bundle did not pass provenance verification'
     }
 

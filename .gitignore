@@ -5,6 +5,7 @@
 .DS_Store
 Thumbs.db
 .lab/
+/reports/load/
 crates/desktop/gen/
 /reports/
 /benchmarks/start-004/

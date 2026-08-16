@@ -12,8 +12,8 @@ mod windows {
     };
 
     use localsearch_catalog_index::{
-        CATALOG_SCHEMA_ID, ProjectionRunSummary, ProjectionWorker, ProjectionWorkerError,
-        ProjectionWorkerOptions,
+        CATALOG_SCHEMA_ID, CatalogFingerprint, ProjectionRunSummary, ProjectionWorker,
+        ProjectionWorkerError, ProjectionWorkerOptions,
     };
     use localsearch_core::{
         Availability, DocumentId, FileKey, FileLinkId, FilesystemEvent, VolumeId,
@@ -98,6 +98,27 @@ mod windows {
         cleanup_required: bool,
     }
 
+    #[derive(Serialize)]
+    struct ProjectionSnapshot {
+        operation: String,
+        latest_sequence: u64,
+        catalog_sequence: u64,
+        content_sequence: Option<u64>,
+        catalog_backlog: u64,
+        content_backlog: Option<u64>,
+        maximum_backlog: u64,
+    }
+
+    #[derive(Serialize)]
+    struct ConvergenceResult {
+        operation: String,
+        desired_documents: u64,
+        indexed_documents: u64,
+        duplicate_documents: u64,
+        payloads_match: bool,
+        converged: bool,
+    }
+
     #[derive(Default)]
     struct ChurnMetrics {
         provider_events: u64,
@@ -136,13 +157,15 @@ mod windows {
             "online" => online(&options),
             "churn" => churn(&options),
             "pump" => pump_command(&options),
+            "snapshot" => snapshot(&options),
+            "verify" => verify(&options),
             "cleanup" => cleanup(&options),
             _ => Err(usage().into()),
         }
     }
 
     fn usage() -> &'static str {
-        "usage: localsearch-ux-fixture <init --volume L:\\ --run-root PATH | rename|move|delete|offline|online|pump|cleanup --state FILE | churn --state FILE --duration-seconds N --batch-files N [--cycle-interval-milliseconds N] [--projection-owner agent]>"
+        "usage: localsearch-ux-fixture <init --volume L:\\ --run-root PATH | rename|move|delete|offline|online|pump|snapshot|verify|cleanup --state FILE | churn --state FILE --duration-seconds N --batch-files N [--cycle-interval-milliseconds N] [--projection-owner agent]>"
     }
 
     fn parse_options(
@@ -592,6 +615,59 @@ mod windows {
             .projector_checkpoint(CATALOG_SCHEMA_ID)?
             .map_or(0, |checkpoint| checkpoint.last_sequence);
         Ok(latest.saturating_sub(applied))
+    }
+
+    fn snapshot(options: &[(String, String)]) -> Result<(), Box<dyn Error>> {
+        const CONTENT_SCHEMA_ID: &str = "CONTENT-SCHEMA-v1";
+        let state_path = absolute_path(Path::new(&required(options, "--state")?))?;
+        let state = read_state(&state_path)?;
+        validate_state(&state)?;
+        let graph = FilesystemGraph::open_read_only(&state.graph_path)?;
+        let latest = graph.latest_outbox_sequence()?.0;
+        let catalog = graph
+            .projector_checkpoint(CATALOG_SCHEMA_ID)?
+            .map_or(0, |checkpoint| checkpoint.last_sequence);
+        let content = graph
+            .projector_checkpoint(CONTENT_SCHEMA_ID)?
+            .map(|checkpoint| checkpoint.last_sequence);
+        let catalog_backlog = latest.saturating_sub(catalog);
+        let content_backlog = content.map(|sequence| latest.saturating_sub(sequence));
+        let maximum_backlog =
+            content_backlog.map_or(catalog_backlog, |value| catalog_backlog.max(value));
+        print_json(&ProjectionSnapshot {
+            operation: "snapshot".to_owned(),
+            latest_sequence: latest,
+            catalog_sequence: catalog,
+            content_sequence: content,
+            catalog_backlog,
+            content_backlog,
+            maximum_backlog,
+        })
+    }
+
+    fn verify(options: &[(String, String)]) -> Result<(), Box<dyn Error>> {
+        let state_path = absolute_path(Path::new(&required(options, "--state")?))?;
+        let state = read_state(&state_path)?;
+        validate_state(&state)?;
+        let graph = FilesystemGraph::open_read_only(&state.graph_path)?;
+        let desired = graph.desired_catalog_documents()?;
+        let mut desired_fingerprint = CatalogFingerprint::default();
+        for document in &desired {
+            desired_fingerprint.add_desired(document)?;
+        }
+        let worker = ProjectionWorker::new(&state.index_root, ProjectionWorkerOptions::default());
+        let indexed_fingerprint = worker.active_index(&graph)?.reader()?.fingerprint()?;
+        let payloads_match = desired_fingerprint == indexed_fingerprint;
+        let duplicates = indexed_fingerprint.duplicate_documents();
+        let converged = payloads_match && duplicates == 0;
+        print_json(&ConvergenceResult {
+            operation: "verify".to_owned(),
+            desired_documents: desired_fingerprint.documents,
+            indexed_documents: indexed_fingerprint.documents,
+            duplicate_documents: duplicates,
+            payloads_match,
+            converged,
+        })
     }
 
     fn bounded_number(
