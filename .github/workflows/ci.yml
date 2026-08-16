@@ -95,25 +95,23 @@ jobs:
             $forbidden
             throw 'Desktop bypasses the public Agent API'
           }
-          $frontendLeaks = rg -n 'tantivy|rusqlite|broker[_-]api|filesystem[_-]provider|__TAURI__\.(opener|clipboard|globalShortcut)' crates/desktop/web
-          if ($LASTEXITCODE -eq 0) {
+          $frontendLeaks = Get-ChildItem crates/desktop/web -Recurse -File |
+            Select-String -CaseSensitive `
+              -Pattern 'tantivy|rusqlite|broker[_-]api|filesystem[_-]provider|__TAURI__\.(opener|clipboard|globalShortcut)'
+          if ($frontendLeaks) {
             $frontendLeaks
             throw 'Desktop frontend contains a backend or direct privileged-plugin dependency'
-          }
-          if ($LASTEXITCODE -ne 1) {
-            throw 'Desktop frontend boundary scan failed'
           }
 
       - name: Verify Windows types stay in the adapter
         shell: pwsh
         run: |
-          $leaks = rg -n 'windows_sys|Win32::|USN_|MFT|HANDLE|JournalId' crates/core crates/platform-core crates/filesystem-graph crates/catalog-index
-          if ($LASTEXITCODE -eq 0) {
+          $leaks = Get-ChildItem crates/core,crates/platform-core,crates/filesystem-graph,crates/catalog-index `
+              -Recurse -File |
+            Select-String -CaseSensitive -Pattern 'windows_sys|Win32::|USN_|MFT|HANDLE|JournalId'
+          if ($leaks) {
             $leaks
             throw 'Windows-native concepts leaked across the adapter boundary'
-          }
-          if ($LASTEXITCODE -ne 1) {
-            throw 'boundary scan failed'
           }
 
       - name: Run tests
