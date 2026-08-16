@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localsearch.invalid/schemas/engineering-spike-report-v1.json",
+  "title": "LocalSearch engineering spike report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_version",
+    "run_id",
+    "spike",
+    "timestamp_utc",
+    "commit_sha",
+    "dirty_tree",
+    "dataset",
+    "environment",
+    "measurements",
+    "artifacts"
+  ],
+  "properties": {
+    "report_version": { "const": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "spike": { "enum": ["START-002", "START-003", "START-003-R", "START-004", "START-004-LIVE", "START-005", "START-006"] },
+    "timestamp_utc": { "type": "string", "format": "date-time" },
+    "commit_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "dirty_tree": { "type": "boolean" },
+    "dataset": { "$ref": "#/$defs/dataset" },
+    "environment": { "$ref": "#/$defs/environment" },
+    "parameters": { "type": "object" },
+    "measurements": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/measurement" }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/artifact" }
+    },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  },
+  "$defs": {
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "seed", "records"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "integer", "minimum": 1 },
+        "seed": { "type": "integer", "minimum": 0 },
+        "records": { "type": "integer", "minimum": 0 },
+        "workload": { "type": "string" }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "arch", "rustc", "profile", "logical_cpus"],
+      "properties": {
+        "os": { "type": "string", "minLength": 1 },
+        "arch": { "type": "string", "minLength": 1 },
+        "rustc": { "type": "string", "minLength": 1 },
+        "target": { "type": "string" },
+        "profile": { "enum": ["debug", "release"] },
+        "logical_cpus": { "type": "integer", "minimum": 1 },
+        "memory_bytes": { "type": ["integer", "null"], "minimum": 0 },
+        "storage": { "type": ["string", "null"] },
+        "power": { "type": ["string", "null"] }
+      }
+    },
+    "measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "unit", "value"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "unit": { "type": "string", "minLength": 1 },
+        "value": { "type": "number" },
+        "dimensions": {
+          "type": "object",
+          "additionalProperties": { "type": ["string", "number", "boolean"] }
+        },
+        "samples": { "type": "array", "items": { "type": "number" } }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path"],
+      "properties": {
+        "kind": { "enum": ["json", "csv", "markdown", "histogram", "log"] },
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

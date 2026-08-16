@@ -1,0 +1,165 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality-x64:
+    name: Format, lint, and test (Windows x64)
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Show Rust toolchain
+        run: rustc --version --verbose
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Verify core dependency boundary
+        shell: pwsh
+        run: |
+          $tree = cargo tree -p localsearch-platform-core --edges normal --prefix none
+          $forbidden = $tree | Select-String -Pattern '^(tantivy|windows|windows-sys|rusqlite|sqlx|mcp|tauri|libc|nix|core-foundation)(\s|$)'
+          if ($forbidden) {
+            $forbidden
+            throw 'portable core contains a forbidden adapter dependency'
+          }
+
+      - name: Verify filesystem graph dependency boundary
+        shell: pwsh
+        run: |
+          $tree = cargo tree -p localsearch-filesystem-graph --edges normal --prefix none
+          $forbidden = $tree | Select-String -Pattern '^(tantivy|windows|windows-sys|mcp|tauri)(\s|$)'
+          if ($forbidden) {
+            $forbidden
+            throw 'filesystem graph contains a forbidden projection or platform dependency'
+          }
+
+      - name: Verify Agent Wire dependency boundary
+        shell: pwsh
+        run: |
+          $tree = cargo tree -p localsearch-agent-api --edges normal --prefix none
+          $forbidden = $tree | Select-String -Pattern '^(tantivy|windows|windows-sys|rusqlite|sqlx|mcp|tauri)(\s|$)'
+          if ($forbidden) {
+            $forbidden
+            throw 'Agent Wire contains a backend, platform, or adapter dependency'
+          }
+
+      - name: Verify MCP adapter dependency boundary
+        shell: pwsh
+        run: |
+          $tree = cargo tree -p localsearch-mcp --edges normal --prefix none
+          $forbidden = $tree | Select-String -Pattern '^(tantivy|rusqlite|sqlx|localsearch-agent |localsearch-catalog-index|localsearch-filesystem-graph|localsearch-windows-fs)(\s|$)'
+          if ($forbidden) {
+            $forbidden
+            throw 'MCP adapter bypasses the public Agent boundary'
+          }
+
+      - name: Verify broker contract and client boundaries
+        shell: pwsh
+        run: |
+          $api = cargo tree -p localsearch-broker-api --edges normal --prefix none
+          $apiForbidden = $api | Select-String -Pattern '^(windows|windows-sys|tantivy|rusqlite|sqlx|localsearch-agent |localsearch-catalog-index|localsearch-filesystem-graph|localsearch-windows-fs|localsearch-mcp)(\s|$)'
+          if ($apiForbidden) {
+            $apiForbidden
+            throw 'broker wire contract contains a platform, backend, or client dependency'
+          }
+          $client = cargo tree -p localsearch-broker-client --edges normal --prefix none
+          $clientForbidden = $client | Select-String -Pattern '^(tantivy|rusqlite|sqlx|localsearch-agent |localsearch-catalog-index|localsearch-filesystem-graph|localsearch-windows-fs|localsearch-mcp)(\s|$)'
+          if ($clientForbidden) {
+            $clientForbidden
+            throw 'broker client bypasses the portable provider boundary'
+          }
+          $service = cargo tree -p localsearch-fs-service --edges normal --prefix none
+          $serviceForbidden = $service | Select-String -Pattern '^(tantivy|rusqlite|sqlx|localsearch-agent |localsearch-catalog-index|localsearch-filesystem-graph|localsearch-mcp)(\s|$)'
+          if ($serviceForbidden) {
+            $serviceForbidden
+            throw 'WinFS broker owns user state, search, or an application-client dependency'
+          }
+
+      - name: Verify Desktop uses only the public Agent boundary
+        shell: pwsh
+        run: |
+          $tree = cargo tree -p localsearch-desktop --edges normal --prefix none
+          $forbidden = $tree | Select-String -Pattern '^(tantivy|rusqlite|sqlx|localsearch-agent |localsearch-broker-api|localsearch-broker-client|localsearch-catalog-index|localsearch-filesystem-graph|localsearch-fs-service|localsearch-mcp|localsearch-windows-fs)(\s|$)'
+          if ($forbidden) {
+            $forbidden
+            throw 'Desktop bypasses the public Agent API'
+          }
+          $frontendLeaks = rg -n 'tantivy|rusqlite|broker[_-]api|filesystem[_-]provider|__TAURI__\.(opener|clipboard|globalShortcut)' crates/desktop/web
+          if ($LASTEXITCODE -eq 0) {
+            $frontendLeaks
+            throw 'Desktop frontend contains a backend or direct privileged-plugin dependency'
+          }
+          if ($LASTEXITCODE -ne 1) {
+            throw 'Desktop frontend boundary scan failed'
+          }
+
+      - name: Verify Windows types stay in the adapter
+        shell: pwsh
+        run: |
+          $leaks = rg -n 'windows_sys|Win32::|USN_|MFT|HANDLE|JournalId' crates/core crates/platform-core crates/filesystem-graph crates/catalog-index
+          if ($LASTEXITCODE -eq 0) {
+            $leaks
+            throw 'Windows-native concepts leaked across the adapter boundary'
+          }
+          if ($LASTEXITCODE -ne 1) {
+            throw 'boundary scan failed'
+          }
+
+      - name: Run tests
+        run: cargo test --workspace --all-targets --locked
+
+      - name: Test sustained-load process supervisor
+        shell: powershell
+        run: .\benchmarks\test-start-010-load-supervisor.ps1
+
+      - name: Test sustained-load binary provenance
+        shell: powershell
+        run: .\benchmarks\test-start-010-load-provenance.ps1
+
+      - name: Test Windows package contracts
+        shell: powershell
+        run: .\packaging\test-windows-package.ps1
+
+      - name: Verify dependency sources and declared licenses
+        run: node packaging/test-dependency-policy.mjs
+
+      - name: Test Desktop UI state machine
+        run: npm test --prefix crates/desktop
+
+  compile-arm64:
+    name: Compile-check (Windows ARM64)
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install ARM64 Rust target
+        run: rustup target add aarch64-pc-windows-msvc
+
+      - name: Compile-check workspace
+        run: cargo check --workspace --all-targets --target aarch64-pc-windows-msvc --locked
+
+  portable-contracts:
+    name: Portable contracts (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Test platform-neutral contracts
+        run: cargo test -p localsearch-core -p localsearch-platform-core -p localsearch-filesystem-graph -p localsearch-agent-api -p localsearch-mcp -p localsearch-broker-api -p localsearch-broker-client --lib --locked

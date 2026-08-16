@@ -1,0 +1,19 @@
+[advisories]
+# Keep informational supply-chain debt visible in logs. Vulnerability advisories remain fatal;
+# informational warnings are triaged in docs/DEPENDENCY-AUDIT-001.md instead of silently ignored.
+informational_warnings = ["unmaintained", "unsound"]
+severity_threshold = "low"
+
+[database]
+fetch = true
+stale = false
+
+[output]
+deny = []
+format = "terminal"
+quiet = false
+show_tree = true
+
+[yanked]
+enabled = true
+update_index = true

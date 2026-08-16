@@ -1,0 +1,19 @@
+[package]
+name = "localsearch-ux-fixture"
+description = "Disposable real-filesystem UX evidence controller for LocalSearch"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+localsearch-catalog-index = { path = "../catalog-index" }
+localsearch-core = { path = "../core" }
+localsearch-filesystem-graph = { path = "../filesystem-graph" }
+localsearch-platform-core = { path = "../platform-core" }
+localsearch-windows-fs = { path = "../windows-fs" }
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

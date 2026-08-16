@@ -1,0 +1,27 @@
+[package]
+name = "localsearch-mcp"
+description = "Bounded MCP stdio adapter for the LocalSearch Agent"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+localsearch-agent-api = { path = "../agent-api" }
+localsearch-core = { path = "../core" }
+localsearch-local-transport = { path = "../local-transport", features = ["agent-wire"] }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+localsearch-agent = { path = "../agent" }
+localsearch-filesystem-graph = { path = "../filesystem-graph" }
+localsearch-platform-core = { path = "../platform-core" }
+tempfile = "3.23.0"
+
+[target.'cfg(not(target_arch = "aarch64"))'.dev-dependencies]
+jsonschema = "0.41.0"
+
+[lints]
+workspace = true

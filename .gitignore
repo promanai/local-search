@@ -1,0 +1,10 @@
+/target/
+**/*.rs.bk
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+.lab/
+crates/desktop/gen/
+/reports/
+/benchmarks/start-004/

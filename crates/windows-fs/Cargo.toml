@@ -1,0 +1,29 @@
+[package]
+name = "localsearch-windows-fs"
+description = "Windows filesystem adapter spike for LocalSearch"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+localsearch-core = { path = "../core" }
+localsearch-platform-core = { path = "../platform-core" }
+serde.workspace = true
+serde_json = "1.0.151"
+thiserror.workspace = true
+
+[dev-dependencies]
+localsearch-platform-core = { path = "../platform-core", features = ["provider-contract-testing"] }
+tempfile = "3.23.0"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_IO", "Win32_System_Ioctl"] }
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+unwrap_used = "deny"

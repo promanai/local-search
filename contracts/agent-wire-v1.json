@@ -1,0 +1,54 @@
+{
+  "contract": "LocalSearch Agent Wire",
+  "agent_api_version": 1,
+  "codec": {
+    "version": 1,
+    "encoding": "utf-8-json",
+    "framing": "u32-little-endian-length-prefix",
+    "maximum_frame_bytes": 1048576,
+    "maximum_json_nesting": 128
+  },
+  "methods": {
+    "catalog_search": "search.catalog",
+    "catalog_get_item": "read.metadata",
+    "catalog_get_items": "read.metadata",
+    "index_get_status": "index.status",
+    "agent_get_capabilities": null,
+    "agent_get_health": null
+  },
+  "limits": {
+    "maximum_request_id_bytes": 64,
+    "maximum_query_bytes": 1024,
+    "maximum_top_k": 100,
+    "maximum_lookup_items": 100,
+    "default_deadline_ms": 2000,
+    "maximum_deadline_ms": 10000
+  },
+  "identity_fields": ["document_id", "object_key", "file_link_id"],
+  "ranking_fields": ["match_type", "rank", "ranking_version"],
+  "forbidden_v0_1_surfaces": [
+    "tcp_listener",
+    "http_api",
+    "read.content",
+    "admin.*",
+    "filesystem.write",
+    "public_backend_score",
+    "pagination_cursor"
+  ],
+  "error_codes": [
+    "invalid_request",
+    "unsupported_protocol_version",
+    "unsupported_codec_version",
+    "unsupported_capability",
+    "unauthorized",
+    "forbidden",
+    "query_policy_rejected",
+    "deadline_exceeded",
+    "cancelled",
+    "not_found",
+    "unavailable",
+    "index_not_ready",
+    "resource_exhausted",
+    "internal"
+  ]
+}

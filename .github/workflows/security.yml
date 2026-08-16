@@ -1,0 +1,37 @@
+name: Dependency security
+
+on:
+  push:
+    paths:
+      - '.cargo/audit.toml'
+      - 'Cargo.lock'
+      - '**/Cargo.toml'
+      - 'packaging/test-dependency-policy.mjs'
+      - '.github/workflows/security.yml'
+  pull_request:
+    paths:
+      - '.cargo/audit.toml'
+      - 'Cargo.lock'
+      - '**/Cargo.toml'
+      - 'packaging/test-dependency-policy.mjs'
+      - '.github/workflows/security.yml'
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rustsec:
+    name: RustSec and license policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Audit RustSec advisory database
+        uses: actions-rust-lang/audit@v1
+
+      - name: Verify dependency sources and declared licenses
+        run: node packaging/test-dependency-policy.mjs

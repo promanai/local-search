@@ -1,0 +1,29 @@
+[package]
+name = "localsearch-fs-service"
+description = "Metadata-only elevated WinFS broker service prototype"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+localsearch-broker-api = { path = "../broker-api" }
+localsearch-core = { path = "../core" }
+localsearch-local-transport = { path = "../local-transport" }
+localsearch-platform-core = { path = "../platform-core" }
+localsearch-windows-fs = { path = "../windows-fs" }
+serde_json.workspace = true
+thiserror.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-service = "0.8.1"
+
+[dev-dependencies]
+localsearch-agent = { path = "../agent" }
+localsearch-agent-api = { path = "../agent-api" }
+localsearch-broker-client = { path = "../broker-client" }
+localsearch-filesystem-graph = { path = "../filesystem-graph" }
+tempfile = "3.23.0"
+
+[lints]
+workspace = true

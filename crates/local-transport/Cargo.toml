@@ -1,0 +1,35 @@
+[package]
+name = "localsearch-local-transport"
+description = "Bounded same-logon LocalSearch Agent transport adapters"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+localsearch-agent-api = { path = "../agent-api", optional = true }
+thiserror.workspace = true
+
+[features]
+default = []
+agent-wire = ["dep:localsearch-agent-api"]
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Security_Authorization",
+  "Win32_Storage_FileSystem",
+  "Win32_System_IO",
+  "Win32_System_Pipes",
+  "Win32_System_SystemServices",
+  "Win32_System_Threading",
+] }
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+unwrap_used = "deny"

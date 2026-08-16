@@ -1,0 +1,37 @@
+[package]
+name = "localsearch-agent"
+description = "LocalSearch per-user Agent service, Windows IPC endpoint, and CLI client"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+localsearch-agent-api = { path = "../agent-api" }
+localsearch-broker-api = { path = "../broker-api" }
+localsearch-broker-client = { path = "../broker-client" }
+localsearch-catalog-index = { path = "../catalog-index" }
+localsearch-content-index = { path = "../content-index" }
+localsearch-core = { path = "../core" }
+localsearch-filesystem-graph = { path = "../filesystem-graph" }
+localsearch-local-transport = { path = "../local-transport", features = ["agent-wire"] }
+localsearch-platform-core = { path = "../platform-core" }
+localsearch-resource-governor = { path = "../resource-governor" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+unicode-normalization = "0.1.25"
+
+[dev-dependencies]
+tempfile = "3.23.0"
+
+[target.'cfg(windows)'.dependencies]
+localsearch-windows-resources = { path = "../windows-resources" }
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+unwrap_used = "deny"

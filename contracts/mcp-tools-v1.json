@@ -1,0 +1,153 @@
+[
+  {
+    "name": "localsearch.search_files",
+    "title": "Search local file catalog",
+    "description": "Search bounded file and folder metadata through the LocalSearch Agent. This tool never reads file content.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["query"],
+      "properties": {
+        "query": {"type": "string", "minLength": 1, "maxLength": 1024},
+        "scope": {"type": "string", "enum": ["all", "files", "folders"], "default": "all"},
+        "extensions": {"type": "array", "maxItems": 32, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 32}},
+        "directory_filter": {"type": "string", "minLength": 1, "maxLength": 4096},
+        "top_k": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10}
+      }
+    },
+    "outputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "value"],
+      "properties": {
+        "type": {"const": "search"},
+        "value": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["index_generation", "took_micros", "hits"],
+          "properties": {
+            "index_generation": {"type": "integer", "minimum": 0},
+            "took_micros": {"type": "integer", "minimum": 0},
+            "hits": {
+              "type": "array",
+              "maxItems": 50,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["document_id", "object_key", "file_link_id", "name", "resolved_path", "extension", "kind", "size", "modified_at_unix_ms", "availability", "match_type", "rank", "ranking_version"],
+                "properties": {
+                  "document_id": {"type": "string", "pattern": "^document:[0-9a-f]{32}$"},
+                  "object_key": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["volume_id", "file_id"],
+                    "properties": {
+                      "volume_id": {"type": "string", "pattern": "^volume:[0-9a-f]{32}$"},
+                      "file_id": {"type": "string", "pattern": "^file:[0-9a-f]{32}$"}
+                    }
+                  },
+                  "file_link_id": {"type": "string", "pattern": "^link:[0-9a-f]{32}$"},
+                  "name": {"type": "string"},
+                  "resolved_path": {"type": "string"},
+                  "extension": {"type": ["string", "null"]},
+                  "kind": {"type": "string", "enum": ["file", "directory", "symlink", "special", "other"]},
+                  "size": {"type": "integer", "minimum": 0},
+                  "modified_at_unix_ms": {"type": ["integer", "null"]},
+                  "availability": {"type": "string", "enum": ["online", "offline", "unknown"]},
+                  "match_type": {"type": "string", "enum": ["exact_name", "prefix_name", "token_name", "substring_name", "path"]},
+                  "rank": {"type": "integer", "minimum": 1},
+                  "ranking_version": {"type": "integer", "minimum": 1}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "resultType": "complete"
+  },
+  {
+    "name": "localsearch.get_catalog_item",
+    "title": "Get catalog metadata",
+    "description": "Read current bounded metadata for one stable LocalSearch document identity. This tool never reads file content.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document_id"],
+      "properties": {"document_id": {"type": "string", "pattern": "^document:[0-9a-fA-F]{32}$"}}
+    },
+    "outputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "value"],
+      "properties": {
+        "type": {"const": "catalog_item"},
+        "value": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["document_id", "object_key", "file_link_id", "document_version", "name", "resolved_path", "extension", "kind", "size", "modified_at_unix_ms", "availability"],
+          "properties": {
+            "document_id": {"type": "string", "pattern": "^document:[0-9a-f]{32}$"},
+            "object_key": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["volume_id", "file_id"],
+              "properties": {
+                "volume_id": {"type": "string", "pattern": "^volume:[0-9a-f]{32}$"},
+                "file_id": {"type": "string", "pattern": "^file:[0-9a-f]{32}$"}
+              }
+            },
+            "file_link_id": {"type": "string", "pattern": "^link:[0-9a-f]{32}$"},
+            "document_version": {"type": "integer", "minimum": 0},
+            "name": {"type": "string"},
+            "resolved_path": {"type": "string"},
+            "extension": {"type": ["string", "null"]},
+            "kind": {"type": "string", "enum": ["file", "directory", "symlink", "special", "other"]},
+            "size": {"type": "integer", "minimum": 0},
+            "modified_at_unix_ms": {"type": ["integer", "null"]},
+            "availability": {"type": "string", "enum": ["online", "offline", "unknown"]}
+          }
+        }
+      }
+    },
+    "resultType": "complete"
+  },
+  {
+    "name": "localsearch.get_index_status",
+    "title": "Get LocalSearch index status",
+    "description": "Return sanitized LocalSearch readiness and durable projection backlog status.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "outputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "value"],
+      "properties": {
+        "type": {"const": "index_status"},
+        "value": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["ready", "index_generation", "document_count", "durable_sequence", "applied_sequence", "backlog_mutations"],
+          "properties": {
+            "ready": {"type": "boolean"},
+            "index_generation": {"type": ["integer", "null"], "minimum": 0},
+            "document_count": {"type": "integer", "minimum": 0},
+            "durable_sequence": {"type": "integer", "minimum": 0},
+            "applied_sequence": {"type": "integer", "minimum": 0},
+            "backlog_mutations": {"type": "integer", "minimum": 0}
+          }
+        }
+      }
+    },
+    "resultType": "complete"
+  }
+]

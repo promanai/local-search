@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>LocalSearch</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <main class="launcher" aria-label="LocalSearch file search">
+      <header class="search-shell" data-tauri-drag-region>
+        <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.75"></circle>
+          <path d="m16 16 4 4"></path>
+        </svg>
+        <label class="visually-hidden" for="search-input">Search files</label>
+        <input
+          id="search-input"
+          type="search"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          placeholder="Search files..."
+          aria-controls="results"
+          aria-autocomplete="list"
+          aria-expanded="false"
+        />
+        <div id="search-mode" class="mode-switch" role="group" aria-label="Search mode" hidden>
+          <button
+            id="name-mode"
+            class="mode-button"
+            type="button"
+            aria-pressed="true"
+            title="Search file and folder names"
+          >Names</button>
+          <button
+            id="content-mode"
+            class="mode-button"
+            type="button"
+            aria-pressed="false"
+            title="Search inside indexed documents"
+          >Contents</button>
+        </div>
+        <kbd id="hotkey-label" aria-label="Global shortcut">Ctrl Space</kbd>
+        <button id="hide-button" class="icon-button" type="button" aria-label="Hide LocalSearch">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"></path></svg>
+        </button>
+      </header>
+
+      <section class="status-row" aria-live="polite" aria-atomic="true">
+        <span id="status">Type to search your catalog</span>
+        <span id="result-count"></span>
+      </section>
+
+      <section class="result-shell">
+        <div id="results" role="listbox" aria-label="Search results"></div>
+        <div id="empty-state" class="empty-state">
+          <p class="empty-title">Find anything on this PC</p>
+          <p>Start typing. Use ↑ ↓ to select, Enter to open, and Esc to hide.</p>
+        </div>
+      </section>
+
+      <footer>
+        <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+        <span><kbd>Enter</kbd> Open</span>
+        <span><kbd>Esc</kbd> Hide</span>
+      </footer>
+    </main>
+  </body>
+</html>

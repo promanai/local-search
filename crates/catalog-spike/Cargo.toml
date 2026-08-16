@@ -1,0 +1,22 @@
+[package]
+name = "localsearch-catalog-spike"
+description = "Experimental Tantivy catalog retrieval spike for START-002"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+chrono = { version = "0.4.44", default-features = false, features = ["clock", "serde"] }
+localsearch-benchmark-data = { path = "../benchmark-data" }
+serde.workspace = true
+serde_json = "1.0.151"
+sysinfo = "0.38.3"
+tantivy = { version = "0.26.1", default-features = false, features = ["lz4-compression", "mmap"] }
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile = "3.27.0"
+
+[lints]
+workspace = true

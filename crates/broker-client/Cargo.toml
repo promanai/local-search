@@ -1,0 +1,17 @@
+[package]
+name = "localsearch-broker-client"
+description = "Portable FilesystemProvider client for the LocalSearch WinFS broker"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+localsearch-broker-api = { path = "../broker-api" }
+localsearch-core = { path = "../core" }
+localsearch-local-transport = { path = "../local-transport" }
+localsearch-platform-core = { path = "../platform-core" }
+thiserror.workspace = true
+
+[lints]
+workspace = true

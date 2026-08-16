@@ -1,0 +1,29 @@
+[package]
+name = "localsearch-substring-spike"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+localsearch-benchmark-data = { path = "../benchmark-data" }
+memory-stats = "1.2.0"
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.10.9"
+tantivy = { version = "0.26.1", default-features = false, features = ["lz4-compression", "mmap"] }
+tempfile = "3.23.0"
+thiserror.workspace = true
+time = { version = "0.3.55", features = ["formatting"] }
+unicode-normalization = "0.1.25"
+
+[target.'cfg(not(target_arch = "aarch64"))'.dev-dependencies]
+jsonschema = "0.41.0"
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "start-003-bench"
+path = "src/bin/start_003_bench.rs"

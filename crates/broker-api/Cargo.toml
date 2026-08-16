@@ -1,0 +1,17 @@
+[package]
+name = "localsearch-broker-api"
+description = "Versioned metadata-only contract for the LocalSearch WinFS broker"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+localsearch-core = { path = "../core" }
+localsearch-platform-core = { path = "../platform-core" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

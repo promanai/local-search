@@ -1,0 +1,26 @@
+{
+  "protocol_version": 1,
+  "codec_version": 1,
+  "maximum_frame_bytes": 1048576,
+  "maximum_page_events": 256,
+  "maximum_request_id_bytes": 64,
+  "default_deadline_ms": 5000,
+  "maximum_deadline_ms": 30000,
+  "allowed_operations": [
+    "broker_get_capabilities",
+    "discover_volumes",
+    "start_scan",
+    "read_scan_page",
+    "cancel_scan",
+    "read_changes"
+  ],
+  "forbidden_capabilities": [
+    "read_content",
+    "read_arbitrary_path",
+    "write_filesystem",
+    "execute_process",
+    "write_user_database",
+    "search_catalog",
+    "service_admin"
+  ]
+}
