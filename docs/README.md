@@ -12,6 +12,7 @@
 | [Local Agent API](LOCAL-API.md) | Client boundary, wire DTO, methods, identities, and Named Pipe transport |
 | [MCP adapter](MCP-ADAPTER.md) | Stateless MCP 2026 stdio mapping and compatibility isolation |
 | [Agent API security](API-SECURITY.md) | Pipe DACL, capability grants, limits, and future HTTP gate |
+| [SECURITY-001](SECURITY-001.md) | v0.1 current-user metadata policy and elevated-broker exclusion |
 | [Protocol compatibility](PROTOCOL-COMPATIBILITY.md) | Independent version domains and adapter compatibility |
 | [Security model](SECURITY-MODEL.md) | Trust boundaries, IPC, metadata privacy, and release gate |
 | [Extraction sandbox](EXTRACTION-SANDBOX.md) | Required v0.2 isolation of native parsers and IFilter |

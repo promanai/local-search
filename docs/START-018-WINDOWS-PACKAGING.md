@@ -53,13 +53,14 @@ Review an install plan without elevation or mutation:
 .\install-windows.ps1 `
   -BundlePath C:\Builds\LocalSearch-0.1.0-win-x64 `
   -StateRoot "$env:LOCALAPPDATA\LocalSearch" `
-  -EnableBrokerObservation `
-  -ObserveRoot C:\ `
   -PlanOnly
 ```
 
 Run the same command from an elevated PowerShell without `-PlanOnly` after reviewing the JSON. Add
-`-AllowUnsignedDevelopmentBundle` only for a local bundle whose provenance you control.
+`-AllowUnsignedDevelopmentBundle` only for a local bundle whose provenance you control. The v0.1
+public policy is current-user-only. Elevated broker observation additionally requires
+`-AllowElevatedMetadataDevelopmentMode`, marks the plan `public_release_eligible = false`, and is
+reserved for controlled engineering evidence.
 
 ### Content-enabled install
 
@@ -123,4 +124,5 @@ these rows remain physical/release gates rather than inferred PASS results:
 2. inspect actual SCM/task ACLs and exercise service recovery as the authorized and a second user;
 3. build and verify a timestamped signed x64 artifact, then smoke the exact artifact on x64 and
    physical ARM64 Windows;
-4. accept the separate multi-user broker policy before enabling machine-wide multi-user installs.
+4. execute the `SECURITY-001` second-user matrix; elevated broker mode remains excluded from the
+   v0.1 public package regardless of that result.

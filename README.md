@@ -8,12 +8,13 @@ The v0.1 implementation includes:
 - a durable SQLite filesystem graph and independent Tantivy catalog/content indexes;
 - restart-safe projection, reconciliation, bounded maintenance, and resource governance;
 - a secured per-user Agent API used by the CLI, MCP adapter, and Tauri desktop client;
-- an authenticated metadata-only Windows filesystem broker with opt-in USN observation;
+- an authenticated metadata-only Windows filesystem broker for explicit development-mode USN
+  observation; public v0.1 discovery remains under the current user's token;
 - reproducible Windows packaging, guarded install/uninstall operations, and redacted diagnostics.
 
-The project is in release hardening. Core engineering gates pass, while physical Windows lifecycle,
-long-running load, multi-user security, signed-artifact, and UX evidence remain conditional. No
-prebuilt release artifact is published yet.
+The project is in release hardening. Core engineering gates and the fail-closed multi-user policy
+pass, while physical Windows lifecycle, long-running load, second-user isolation, signed-artifact,
+and UX evidence remain conditional. No prebuilt release artifact is published yet.
 
 ## Build and verify
 

@@ -54,7 +54,9 @@ evidence incomplete, `[ ]` not complete.
 - [x] `START-009-PASS`: authenticated metadata-only elevated WinFS broker prototype.
 - [x] Broker backpressure, reconnect, restart, malformed/replay/version rejection.
 - [~] Real Windows SCM/install lifecycle remains release evidence, not prototype evidence.
-- [ ] Multi-user broker metadata policy completed under `SECURITY-001`.
+- [x] `SECURITY-001` fixes v0.1 to current-user-only discovery and excludes elevated broker
+  observation from public-release plans.
+- [ ] Second-user install/repair/upgrade/uninstall isolation evidence.
 
 ## Desktop and UX
 
@@ -105,9 +107,11 @@ evidence incomplete, `[ ]` not complete.
 - [x] Local Git history and frozen architecture/engineering/backend/service tags.
 - [x] GitHub Actions workflow is defined, including x64, ARM64, portable boundaries, frontend, and
   sustained-load supervisor tests.
-- [ ] GitHub remote and off-machine backup.
-- [ ] Hosted GitHub Actions runs accepted on the release candidate.
-- [ ] Branch protection/review policy.
+- [x] Public sanitized source snapshot backed up at `promanai/local-search`; private `reports/`
+  and evidence tags intentionally remain local.
+- [x] Hosted GitHub Actions accepted on Windows x64, Windows ARM64 compile-check, Ubuntu, and macOS.
+- [x] `main` protection requires all four CI jobs, PRs, linear history, resolved conversations,
+  and forbids force-push/delete, including for administrators.
 - [~] Authenticode/timestamped package strategy implemented fail-closed; accepted signed artifact
   remains pending.
 - [~] Windows service registration/removal implemented; elevated disposable-VM evidence pending.
@@ -119,8 +123,10 @@ evidence incomplete, `[ ]` not complete.
 - [ ] x64 and physical ARM64 release smoke.
 - [~] Locked dependency source/license and recurring RustSec audit implemented with zero
   vulnerabilities; 16 documented informational warnings remain tracked.
-- [ ] `SECURITY-001` complete.
-- [ ] `START-012-PASS` / release-candidate tag.
+- [~] `SECURITY-001` engineering policy and fail-closed package enforcement complete;
+  second-user VM evidence remains.
+- [x] `CONTENT-PRODUCTION-GATE-001` passes for bounded opt-in UTF-8 plaintext.
+- [ ] Signed release-candidate tag.
 
 ## Current evidence-backed assessment
 
@@ -131,9 +137,9 @@ evidence incomplete, `[ ]` not complete.
 | API/MCP/service engineering | `92/100` | headless product works; installer/SCM security evidence remains |
 | Desktop engineering | `86/100` | implementation is strong; physical UX matrix remains conditional |
 | Resource adaptation | `79/100` | policy and live telemetry implemented; two power rows/load gate remain |
-| Packaging/security/release | `55/100` | lifecycle tooling exists; signed artifact and physical/security evidence remain |
-| Overall engineering completeness | `90/100` | core and operational implementation are largely complete |
-| Public release readiness | `70/100` | dominated by physical UX/load, multi-user security, and release evidence |
+| Packaging/security/release | `68/100` | public backup/CI/protection and policy pass; signed artifact and physical evidence remain |
+| Overall engineering completeness | `92/100` | core, content, packaging policy, and operational automation are complete |
+| Public release readiness | `76/100` | dominated by physical UX/load, second-user security, and signed release evidence |
 
 Scores are planning estimates, not substitutes for the binary gates above. No unchecked release
 row may be treated as complete because an adjacent engineering prototype passed.

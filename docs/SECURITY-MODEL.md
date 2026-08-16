@@ -1,7 +1,7 @@
 # Security Model
 
-Status: broker IPC prototype implemented by [`START-009`](START-009.md); public release blocked on
-`SECURITY-001`
+Status: v0.1 policy fixed by [`SECURITY-001`](SECURITY-001.md); second-user physical evidence
+remains a release gate
 
 ## 1. Assets
 
@@ -57,8 +57,8 @@ Replay of enumeration cursors is safe and idempotent; requests that mutate servi
 Broker Wire v1 has no configuration-mutation operation. Exact request-ID replay is rejected within a
 bounded 4096-request service window. The Windows endpoint uses an explicit authorized logon SID in
 both its DACL and post-connect impersonation check, rejects remote clients, and uses first-instance
-ownership. The prototype deliberately authorizes one configured logon SID; multi-user metadata
-visibility remains part of `SECURITY-001` and is not claimed solved.
+ownership. The broker deliberately authorizes one configured logon SID. It is excluded from the
+v0.1 public package boundary and requires an explicit development-only installation override.
 
 The default Windows Named Pipe descriptor is not used. DACL isolation protects against other users/sessions but does not claim to sandbox a malicious process already running as the same user. Detailed Agent API controls are defined in [API-SECURITY.md](API-SECURITY.md).
 
@@ -66,14 +66,16 @@ The default Windows Named Pipe descriptor is not used. DACL isolation protects a
 
 Engineering spikes may index elevated MFT metadata under a documented single-user workstation assumption. This is not sufficient for public distribution.
 
-`SECURITY-001` must choose and prove one or a combination of:
+`SECURITY-001` selected the secure non-elevated fallback for v0.1:
 
-- ACL-aware filtering of metadata before it reaches a user's searchable index;
-- a secure non-elevated enumeration fallback for privacy-sensitive configurations;
-- explicitly scoped roots whose visibility is verifiable under the current token;
-- per-user/service isolation that prevents cross-user disclosure.
+- public graph/content discovery executes under the current user's token;
+- every user owns a separate state root, Agent endpoint, and task identity;
+- elevated broker observation is engineering-only and makes an install plan ineligible for public
+  release;
+- ACL-aware elevated enumeration, if added later, requires a new reviewed security gate.
 
-The decision must cover multi-user machines, service impersonation risks, ACL changes after indexing, removed users, and index file permissions.
+The detailed lifecycle decision, automated evidence, and remaining second-user VM procedure are in
+[`SECURITY-001`](SECURITY-001.md).
 
 ## 6. Content rule
 

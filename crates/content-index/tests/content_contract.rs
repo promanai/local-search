@@ -422,6 +422,8 @@ fn folder_sync_indexes_a_real_tree_and_reconciles_changes() {
             selected.to_str().expect("selected path"),
             "--scan-batch-size",
             "2",
+            "--min-free-disk-percent",
+            "0",
         ])
         .output()
         .expect("first folder sync");
@@ -642,6 +644,8 @@ fn folder_sync_stops_before_scanning_when_graph_budget_is_already_exhausted() {
             selected.to_str().expect("selected path"),
             "--max-graph-bytes",
             "1",
+            "--min-free-disk-percent",
+            "0",
         ])
         .output()
         .expect("bounded folder sync");
@@ -926,6 +930,8 @@ fn capacity_limits_pause_with_explicit_partial_reasons_without_activation() {
             selected.to_str().expect("selected path"),
             "--min-free-disk-bytes",
             "1",
+            "--min-free-disk-percent",
+            "0",
         ]);
         command.args(arguments);
         let output = command.output().expect("capacity run");
