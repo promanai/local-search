@@ -116,6 +116,10 @@ evidence incomplete, `[ ]` not complete.
   remains pending.
 - [~] Windows service registration/removal implemented; elevated disposable-VM evidence pending.
 - [~] Limited per-user Agent/Desktop autostart tasks implemented; physical logon evidence pending.
+- [x] Transactional repair/upgrade rollback restores payload, signature, marker, service, tasks,
+  and running state at controlled failure points.
+- [x] `OPS-GATE-001` controller covers fresh install, repair, two forced rollbacks, upgrade,
+  both retention modes, orphan checks, ACLs, and redacted evidence.
 - [~] Guarded install, repair, upgrade, binary rollback, and uninstall implemented; physical matrix
   pending.
 - [x] Explicit `KeepIndexes` / marker-guarded `RemoveIndexes` uninstall contract.
@@ -137,9 +141,9 @@ evidence incomplete, `[ ]` not complete.
 | API/MCP/service engineering | `92/100` | headless product works; installer/SCM security evidence remains |
 | Desktop engineering | `86/100` | implementation is strong; physical UX matrix remains conditional |
 | Resource adaptation | `79/100` | policy and live telemetry implemented; two power rows/load gate remain |
-| Packaging/security/release | `68/100` | public backup/CI/protection and policy pass; signed artifact and physical evidence remain |
-| Overall engineering completeness | `92/100` | core, content, packaging policy, and operational automation are complete |
-| Public release readiness | `76/100` | dominated by physical UX/load, second-user security, and signed release evidence |
+| Packaging/security/release | `74/100` | transactional lifecycle automation passes; signed artifact and physical evidence remain |
+| Overall engineering completeness | `93/100` | core, content, security policy, and operational automation are complete |
+| Public release readiness | `78/100` | dominated by physical UX/load, second-user security, and signed release evidence |
 
 Scores are planning estimates, not substitutes for the binary gates above. No unchecked release
 row may be treated as complete because an adjacent engineering prototype passed.

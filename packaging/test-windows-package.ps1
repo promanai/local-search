@@ -30,6 +30,7 @@ function Assert-Fails {
 $TemporaryParent = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\', '/')
 $TestRoot = Join-Path $TemporaryParent "localsearch-package-tests-$PID-$([Guid]::NewGuid().ToString('N'))"
 $Bundle = Join-Path $TestRoot 'bundle'
+$CandidateBundle = Join-Path $TestRoot 'candidate-bundle'
 $Install = Join-Path $TestRoot 'installed-product'
 $State = Join-Path $TestRoot 'private-state'
 $WrongRoot = Join-Path $TestRoot 'wrong-product-root'
@@ -61,6 +62,13 @@ try {
     }
     $Manifest | ConvertTo-Json -Depth 8 |
         Set-Content -LiteralPath (Join-Path $Bundle 'manifest.json') -Encoding utf8
+    Copy-Item -LiteralPath $Bundle -Destination $CandidateBundle -Recurse
+    $CandidateManifestPath = Join-Path $CandidateBundle 'manifest.json'
+    $CandidateManifest = Get-Content -LiteralPath $CandidateManifestPath -Raw -Encoding utf8 |
+        ConvertFrom-Json
+    $CandidateManifest.git_commit = '89abcdef0123456789abcdef0123456789abcdef'
+    $CandidateManifest | ConvertTo-Json -Depth 8 |
+        Set-Content -LiteralPath $CandidateManifestPath -Encoding utf8
 
     $Verified = Test-LocalSearchBundle -BundlePath $Bundle
     Assert-Equal 1 $Verified.schema_version 'Valid fixture bundle was not accepted'
@@ -176,6 +184,37 @@ try {
     $BrokerPlan = $BrokerPlanJson | ConvertFrom-Json
     Assert-Equal $false $BrokerPlan.public_release_eligible `
         'Installer development override did not make release ineligibility visible'
+    Assert-Fails {
+        & (Join-Path $PSScriptRoot 'install-windows.ps1') -BundlePath $Bundle `
+            -InstallRoot $Install -StateRoot $State -AuthorizedLogonSid $Sid `
+            -AllowUnsignedDevelopmentBundle -LifecycleFailurePoint AfterPayloadCopy -PlanOnly
+    } 'Lifecycle failure injection was accepted without its explicit authorization'
+    Assert-Fails {
+        & (Join-Path $PSScriptRoot 'install-windows.ps1') -BundlePath $Bundle `
+            -InstallRoot $Install -StateRoot $State -AuthorizedLogonSid $Sid `
+            -AllowUnsignedDevelopmentBundle -AllowLifecycleFailureInjection -PlanOnly
+    } 'Lifecycle failure authorization was accepted without an explicit failure point'
+    $FailurePlanJson = & (Join-Path $PSScriptRoot 'install-windows.ps1') -BundlePath $Bundle `
+        -InstallRoot $Install -StateRoot $State -AuthorizedLogonSid $Sid `
+        -AllowUnsignedDevelopmentBundle -AllowLifecycleFailureInjection `
+        -LifecycleFailurePoint AfterRuntimeRegistration -PlanOnly
+    $FailurePlan = $FailurePlanJson | ConvertFrom-Json
+    Assert-Equal 'AfterRuntimeRegistration' $FailurePlan.lifecycle_failure_point `
+        'Installer did not disclose its lifecycle failure point'
+    Assert-Equal $false $FailurePlan.public_release_eligible `
+        'Failure-injection plan was incorrectly eligible for release'
+
+    $OpsPlanJson = & (Join-Path $PSScriptRoot 'invoke-ops-gate.ps1') `
+        -BaselineBundlePath $Bundle -CandidateBundlePath $CandidateBundle `
+        -InstallRoot $Install -StateRoot $State `
+        -OutputPath (Join-Path $TestRoot 'ops-evidence.json') `
+        -AuthorizedLogonSid $Sid -AllowUnsignedDevelopmentBundles -PlanOnly
+    $OpsPlan = $OpsPlanJson | ConvertFrom-Json
+    Assert-Equal 'OPS-GATE-001' $OpsPlan.gate 'OPS plan gate identity changed'
+    Assert-Equal 8 @($OpsPlan.steps).Count 'OPS plan lifecycle matrix is incomplete'
+    Assert-Equal $false $OpsPlan.privacy.paths_included 'OPS evidence plan permits paths'
+    Assert-Equal $false $OpsPlan.elevated_broker_enabled `
+        'OPS public lifecycle plan enabled the elevated broker'
 
     foreach ($Retention in @('KeepIndexes', 'RemoveIndexes')) {
         $UninstallPlanJson = & (Join-Path $PSScriptRoot 'uninstall-windows.ps1') `
