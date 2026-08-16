@@ -135,3 +135,7 @@ HDD policy minimizes concurrent random work and uses larger sequential batches. 
 - [x] disk-busy input is wired fail-closed and rate-limited;
 - [x] complete resource-snapshot failure pauses projection immediately and recovers slowly;
 - [ ] disk-pressure threshold and live telemetry-availability rate are calibrated from evidence.
+
+`LOAD-GATE-001` now automates the missing live calibration workload, including catalog/content
+latency, restart recovery, bounded drain, disk-busy samples, and the non-blocking `>= 2x` recovery
+headroom KPI. The checklist remains open until its elevated 15-minute physical verdict passes.

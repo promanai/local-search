@@ -16,6 +16,8 @@ The project is in release hardening. Core engineering gates and the fail-closed 
 pass, while physical Windows lifecycle, long-running load, second-user isolation, signed-artifact,
 and UX evidence remain conditional. No prebuilt release artifact is published yet.
 Transactional Windows repair/upgrade rollback and its disposable-VM evidence runner are implemented.
+The unified LOAD-GATE-001 runner now measures catalog/content SLA, forced Agent recovery,
+graph/catalog convergence, and bounded graph/content storage in one 15-minute workload.
 
 ## Build and verify
 

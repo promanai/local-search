@@ -4,6 +4,7 @@ function Get-Start010ExpectedExecutables {
     return @(
         'target/release/localsearch-agent.exe',
         'target/release/localsearch-cli.exe',
+        'target/release/localsearch-content-index.exe',
         'target/release/localsearch-desktop.exe',
         'target/release/localsearch-ux-fixture.exe'
     )

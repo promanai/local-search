@@ -62,6 +62,10 @@ At the same time the runner:
 - records any WebView main-thread timer stall above 100 ms;
 - records sanitized resource-pressure samples and disk-busy p50/p95/p99/max once per second;
 - records unavailable resource samples and fail-closed Governor transitions separately;
+- optionally exercises the opt-in content index and public `content` search under the same churn;
+- creates bounded Agent outages, measures durable restart recovery, and requires backlog zero;
+- compares authoritative graph and active-catalog fingerprints with zero duplicate IDs;
+- records graph, catalog, and content-index growth under explicit storage ceilings;
 - aborts immediately if the Desktop process stops responding or reports a UI stall;
 - aborts immediately on the first failed or three-second-stalled Agent search;
 - executes every foreground fixture/CLI command under an external process deadline;
@@ -139,9 +143,13 @@ argument quoting, invalid-output rejection, and bounded timeout/kill behavior. A
 `start-010-l-failure-<run>.json` with a bounded reason code, phase, and exception category but no
 query, path, document ID, or raw native error.
 
-The separate provenance self-test creates a synthetic four-executable bundle, proves the valid
+The separate provenance self-test creates a synthetic five-executable bundle, proves the valid
 path, then proves that both byte tampering and commit mismatch fail closed. The accepted live report
 embeds the verified relative-path hashes and Rust toolchain identity.
+
+`LOAD-GATE-001` invokes this runner with content enabled, two forced Agent restarts, a 120-second
+drain bound, and independent 10 GiB graph/content ceilings. Its redacted verdict is the release
+decision; this lower-level source report remains private evidence.
 
 ## Gate boundary
 

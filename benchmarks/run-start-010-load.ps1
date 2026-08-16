@@ -19,6 +19,19 @@ param(
     [int]$ChildTimeoutMilliseconds = 7500,
     [ValidateRange(10, 120)]
     [int]$ChurnGraceSeconds = 30,
+    [ValidateRange(0, 8)]
+    [int]$AgentRestartCount = 0,
+    [ValidateRange(1, 30)]
+    [int]$RestartOutageSeconds = 5,
+    [ValidateRange(5, 300)]
+    [int]$AgentReadyTimeoutSeconds = 60,
+    [ValidateRange(10, 600)]
+    [int]$DrainTimeoutSeconds = 120,
+    [switch]$EnableContent,
+    [ValidateRange(1048576, 10737418240)]
+    [int64]$MaximumGraphBytes = 10737418240,
+    [ValidateRange(1048576, 10737418240)]
+    [int64]$MaximumContentIndexBytes = 10737418240,
     [string]$BuildManifest = '.lab/start-010-load-bundle.json',
     [string]$OutputDirectory = 'reports/ux/start-010-l'
 )
@@ -34,10 +47,9 @@ $StatePath = Join-Path $RunRoot 'fixture-state.json'
 $FixtureExe = Join-Path $Repository 'target/release/localsearch-ux-fixture.exe'
 $AgentExe = Join-Path $Repository 'target/release/localsearch-agent.exe'
 $CliExe = Join-Path $Repository 'target/release/localsearch-cli.exe'
+$ContentExe = Join-Path $Repository 'target/release/localsearch-content-index.exe'
 $DesktopExe = Join-Path $Repository 'target/release/localsearch-desktop.exe'
 $Output = Join-Path $Repository $OutputDirectory
-$AgentStdout = Join-Path $RunRoot 'agent.stdout.log'
-$AgentStderr = Join-Path $RunRoot 'agent.stderr.log'
 $DesktopStdout = Join-Path $RunRoot 'desktop.stdout.log'
 $DesktopStderr = Join-Path $RunRoot 'desktop.stderr.log'
 $ChurnStdout = Join-Path $RunRoot 'churn.stdout.json'
@@ -88,8 +100,70 @@ function Read-PrefixedJson([string]$Path, [string]$Prefix) {
     })
 }
 
+function Get-PathBytes([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path)) { return [int64]0 }
+    if (Test-Path -LiteralPath $Path -PathType Leaf) {
+        return [int64](Get-Item -LiteralPath $Path).Length
+    }
+    $Measurement = Get-ChildItem -LiteralPath $Path -File -Recurse -Force |
+        Measure-Object -Property Length -Sum
+    return [int64]$Measurement.Sum
+}
+
+function Get-SqliteStorageBytes([string]$Path) {
+    $Total = Get-PathBytes $Path
+    foreach ($Suffix in @('-wal', '-shm')) {
+        $Total = $Total + (Get-PathBytes "$Path$Suffix")
+    }
+    return [int64]$Total
+}
+
+function Start-EvidenceAgent([int]$Epoch, [object]$FixtureState, [bool]$WithContent) {
+    $Stdout = Join-Path $RunRoot ("agent-{0:D2}.stdout.log" -f $Epoch)
+    $Stderr = Join-Path $RunRoot ("agent-{0:D2}.stderr.log" -f $Epoch)
+    $Arguments = @(
+        '--graph', [string]$FixtureState.graph_path,
+        '--index', [string]$FixtureState.index_root,
+        '--pipe', $Pipe
+    )
+    if ($WithContent) {
+        $Arguments += @('--content-index', (Join-Path $RunRoot 'content-index-v1'))
+    }
+    $StartParameters = @{
+        FilePath = $AgentExe
+        ArgumentList = $Arguments
+        WindowStyle = 'Hidden'
+        PassThru = $true
+        RedirectStandardOutput = $Stdout
+        RedirectStandardError = $Stderr
+    }
+    $Process = Start-Process @StartParameters
+    $Deadline = [DateTime]::UtcNow.AddSeconds($AgentReadyTimeoutSeconds)
+    while ([DateTime]::UtcNow -lt $Deadline) {
+        if ($Process.HasExited) {
+            throw "Agent exited before readiness in epoch $Epoch"
+        }
+        if ((Test-Path -LiteralPath $Stderr) -and
+            (Get-Content -LiteralPath $Stderr -Raw) -match 'LocalSearch Agent ready') {
+            return [pscustomobject]@{
+                process = $Process
+                stdout = $Stdout
+                stderr = $Stderr
+                epoch = $Epoch
+            }
+        }
+        Start-Sleep -Milliseconds 50
+        $Process.Refresh()
+    }
+    Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
+    throw "Agent did not become ready within $AgentReadyTimeoutSeconds seconds"
+}
+
 New-Item -ItemType Directory -Path $Output -Force | Out-Null
 $Agent = $null
+$AgentEpoch = 0
+$AgentLogPaths = [Collections.Generic.List[string]]::new()
+$RestartEvidence = [Collections.Generic.List[object]]::new()
 $Desktop = $null
 $Churn = $null
 $CleanupCompleted = $false
@@ -111,26 +185,37 @@ try {
     ) 120000
     $State = Get-Content -LiteralPath $StatePath -Raw | ConvertFrom-Json
 
+    $ContentSetup = $null
+    if ($EnableContent) {
+        $Phase = 'content_init'
+        $ContentSetup = Invoke-JsonProcess $ContentExe @(
+            'folder-sync',
+            '--workspace', $RunRoot,
+            '--root', [string]$State.fixture_root,
+            '--max-graph-bytes', [string]$MaximumGraphBytes,
+            '--max-content-index-bytes', [string]$MaximumContentIndexBytes
+        ) 1200000
+        if (-not [bool]$ContentSetup.scan_complete -or
+            -not [bool]$ContentSetup.content_complete) {
+            throw 'Content workspace did not complete its bounded initial generation'
+        }
+    }
+    $InitialStorage = [ordered]@{
+        graph_bytes = Get-SqliteStorageBytes ([string]$State.graph_path)
+        catalog_bytes = Get-PathBytes ([string]$State.index_root)
+        content_bytes = Get-PathBytes (Join-Path $RunRoot 'content-index-v1')
+    }
+    $MaximumObservedGraphBytes = [int64]$InitialStorage.graph_bytes
+    $MaximumObservedCatalogBytes = [int64]$InitialStorage.catalog_bytes
+    $MaximumObservedContentBytes = [int64]$InitialStorage.content_bytes
+
     $Phase = 'agent_start'
     $env:LOCALSEARCH_RESOURCE_EVIDENCE = '1'
     $env:LOCALSEARCH_SEARCH_EVIDENCE = '1'
-    $Agent = Start-Process -FilePath $AgentExe -ArgumentList @(
-        '--graph', $State.graph_path,
-        '--index', $State.index_root,
-        '--pipe', $Pipe
-    ) -WindowStyle Hidden -PassThru -RedirectStandardOutput $AgentStdout `
-        -RedirectStandardError $AgentStderr
-    $Ready = $false
-    for ($Attempt = 0; $Attempt -lt 100; $Attempt++) {
-        if ($Agent.HasExited) { throw "Agent exited before readiness; see $AgentStderr" }
-        if ((Test-Path -LiteralPath $AgentStderr) -and
-            (Get-Content -LiteralPath $AgentStderr -Raw) -match 'LocalSearch Agent ready') {
-            $Ready = $true
-            break
-        }
-        Start-Sleep -Milliseconds 50
-    }
-    if (-not $Ready) { throw 'Agent did not become ready within five seconds' }
+    $AgentInstance = Start-EvidenceAgent $AgentEpoch $State ([bool]$EnableContent)
+    $Agent = $AgentInstance.process
+    $AgentStderr = $AgentInstance.stderr
+    $AgentLogPaths.Add($AgentStderr)
 
     $Phase = 'desktop_start'
     $env:LOCALSEARCH_AGENT_PIPE = $Pipe
@@ -156,6 +241,14 @@ try {
     ) -WindowStyle Hidden -PassThru -RedirectStandardOutput $ChurnStdout `
         -RedirectStandardError $ChurnStderr
     $ChurnDeadline = [DateTime]::UtcNow.AddSeconds($DurationSeconds + $ChurnGraceSeconds)
+    $LoadElapsed = [Diagnostics.Stopwatch]::StartNew()
+    $RestartTargets = @()
+    for ($RestartOrdinal = 1; $RestartOrdinal -le $AgentRestartCount; $RestartOrdinal++) {
+        $RestartTargets += [int64](
+            $DurationSeconds * 1000 * $RestartOrdinal / ($AgentRestartCount + 1)
+        )
+    }
+    $NextRestart = 0
 
     $Phase = 'interactive_supervision'
     $Keyboard = New-Object -ComObject WScript.Shell
@@ -165,8 +258,10 @@ try {
         throw 'Desktop window could not be activated for controlled input'
     }
     $SearchLatencies = [Collections.Generic.List[double]]::new()
+    $ContentSearchLatencies = [Collections.Generic.List[double]]::new()
     $BacklogSamples = [Collections.Generic.List[double]]::new()
     $SearchErrors = 0
+    $ContentSearchErrors = 0
     $Iteration = 0
     $LastHotkey = [Diagnostics.Stopwatch]::StartNew()
     $LastUiInput = [Diagnostics.Stopwatch]::StartNew()
@@ -182,6 +277,65 @@ try {
             $ChurnDeadlineExceeded = $true
             $FailureCode = 'churn_deadline_exceeded'
             throw [TimeoutException]::new('churn exceeded its bounded supervisor deadline')
+        }
+        if ($NextRestart -lt $RestartTargets.Count -and
+            $LoadElapsed.ElapsedMilliseconds -ge $RestartTargets[$NextRestart]) {
+            $Phase = 'agent_restart'
+            Stop-Process -Id $Agent.Id -Force
+            $Agent.WaitForExit()
+            Start-Sleep -Seconds $RestartOutageSeconds
+            $BeforeRecovery = Invoke-JsonProcess $FixtureExe @(
+                'snapshot', '--state', $StatePath
+            )
+            $RecoveryTimer = [Diagnostics.Stopwatch]::StartNew()
+            $AgentEpoch++
+            $AgentInstance = Start-EvidenceAgent $AgentEpoch $State ([bool]$EnableContent)
+            $Agent = $AgentInstance.process
+            $AgentStderr = $AgentInstance.stderr
+            $AgentLogPaths.Add($AgentStderr)
+            $ReadyMilliseconds = $RecoveryTimer.ElapsedMilliseconds
+            $RecoveryDeadline = [DateTime]::UtcNow.AddSeconds($DrainTimeoutSeconds)
+            $RestartStatus = $null
+            do {
+                $RestartStatus = Invoke-JsonProcess $CliExe @('--pipe', $Pipe, 'status')
+                $BacklogSamples.Add(
+                    [double]$RestartStatus.result.value.backlog_mutations
+                )
+                if ([int64]$RestartStatus.result.value.backlog_mutations -eq 0) {
+                    break
+                }
+                Start-Sleep -Milliseconds 100
+            } while ([DateTime]::UtcNow -lt $RecoveryDeadline)
+            $RecoveryTimer.Stop()
+            $AfterRecovery = Invoke-JsonProcess $FixtureExe @(
+                'snapshot', '--state', $StatePath
+            )
+            $RestartPass = (
+                [int64]$RestartStatus.result.value.backlog_mutations -eq 0 -and
+                [int64]$AfterRecovery.maximum_backlog -eq 0
+            )
+            $RestartEvidence.Add([pscustomobject]@{
+                ordinal = $NextRestart + 1
+                outage_seconds = $RestartOutageSeconds
+                backlog_before_recovery = [int64]$BeforeRecovery.maximum_backlog
+                backlog_after_recovery = [int64]$AfterRecovery.maximum_backlog
+                recovered_mutations = [Math]::Max(
+                    0,
+                    [int64]$BeforeRecovery.maximum_backlog -
+                        [int64]$AfterRecovery.maximum_backlog
+                )
+                ready_milliseconds = [int64]$ReadyMilliseconds
+                drain_milliseconds = [int64]$RecoveryTimer.ElapsedMilliseconds
+                pass = $RestartPass
+            })
+            if (-not $RestartPass) {
+                $FailureCode = 'restart_recovery_timeout'
+                throw [TimeoutException]::new(
+                    'Agent restart did not drain durable projection state'
+                )
+            }
+            $NextRestart++
+            $Phase = 'interactive_supervision'
         }
         if ($Agent.HasExited) {
             $FailureCode = 'agent_exited'
@@ -258,6 +412,29 @@ try {
         $SearchTimer.Stop()
         $SearchLatencies.Add($SearchTimer.Elapsed.TotalMilliseconds)
 
+        if ($EnableContent) {
+            $ContentTimer = [Diagnostics.Stopwatch]::StartNew()
+            try {
+                $ContentSearch = Invoke-JsonProcess $CliExe @(
+                    '--pipe', $Pipe, 'content', 'fixture'
+                ) 3000
+                if ($null -eq $ContentSearch.result.value) {
+                    throw [IO.InvalidDataException]::new(
+                        'Agent content search omitted its result'
+                    )
+                }
+            }
+            catch {
+                $ContentSearchErrors++
+                $FailureCode = 'interactive_content_search_failed'
+                throw [InvalidOperationException]::new(
+                    'Interactive content search failed during load'
+                )
+            }
+            $ContentTimer.Stop()
+            $ContentSearchLatencies.Add($ContentTimer.Elapsed.TotalMilliseconds)
+        }
+
         if (($Iteration % 5) -eq 0) {
             try {
                 $Status = Invoke-JsonProcess $CliExe @('--pipe', $Pipe, 'status') 2000
@@ -267,6 +444,28 @@ try {
                 throw
             }
             $BacklogSamples.Add([double]$Status.result.value.backlog_mutations)
+            if (($Iteration % 30) -eq 0) {
+                $ObservedGraphBytes = Get-SqliteStorageBytes ([string]$State.graph_path)
+                $ObservedCatalogBytes = Get-PathBytes ([string]$State.index_root)
+                $ObservedContentBytes = Get-PathBytes (Join-Path $RunRoot 'content-index-v1')
+                $MaximumObservedGraphBytes = [Math]::Max(
+                    $MaximumObservedGraphBytes,
+                    $ObservedGraphBytes
+                )
+                $MaximumObservedCatalogBytes = [Math]::Max(
+                    $MaximumObservedCatalogBytes,
+                    $ObservedCatalogBytes
+                )
+                $MaximumObservedContentBytes = [Math]::Max(
+                    $MaximumObservedContentBytes,
+                    $ObservedContentBytes
+                )
+                if ($ObservedGraphBytes -gt $MaximumGraphBytes -or
+                    $ObservedContentBytes -gt $MaximumContentIndexBytes) {
+                    $FailureCode = 'storage_limit_exceeded'
+                    throw 'Graph or content index exceeded its hard storage limit'
+                }
+            }
         }
         $Remaining = $QueryIntervalMilliseconds - [int]$Loop.ElapsedMilliseconds
         if ($Remaining -gt 0) { Start-Sleep -Milliseconds $Remaining }
@@ -292,12 +491,37 @@ try {
     }
     $Phase = 'projection_drain'
     $FinalStatus = $null
-    for ($DrainAttempt = 0; $DrainAttempt -lt 100; $DrainAttempt++) {
+    $DrainTimer = [Diagnostics.Stopwatch]::StartNew()
+    $DrainDeadline = [DateTime]::UtcNow.AddSeconds($DrainTimeoutSeconds)
+    do {
         $FinalStatus = Invoke-JsonProcess $CliExe @('--pipe', $Pipe, 'status')
         if ([int64]$FinalStatus.result.value.backlog_mutations -eq 0) { break }
         Start-Sleep -Milliseconds 100
-    }
+    } while ([DateTime]::UtcNow -lt $DrainDeadline)
+    $DrainTimer.Stop()
     $BacklogSamples.Add([double]$FinalStatus.result.value.backlog_mutations)
+    $Convergence = Invoke-JsonProcess $FixtureExe @('verify', '--state', $StatePath)
+    if (-not [bool]$Convergence.converged) {
+        $FailureCode = 'catalog_convergence_failed'
+        throw 'Graph and catalog fingerprints did not converge after load'
+    }
+    $FinalStorage = [ordered]@{
+        graph_bytes = Get-SqliteStorageBytes ([string]$State.graph_path)
+        catalog_bytes = Get-PathBytes ([string]$State.index_root)
+        content_bytes = Get-PathBytes (Join-Path $RunRoot 'content-index-v1')
+    }
+    $MaximumObservedGraphBytes = [Math]::Max(
+        $MaximumObservedGraphBytes,
+        [int64]$FinalStorage.graph_bytes
+    )
+    $MaximumObservedCatalogBytes = [Math]::Max(
+        $MaximumObservedCatalogBytes,
+        [int64]$FinalStorage.catalog_bytes
+    )
+    $MaximumObservedContentBytes = [Math]::Max(
+        $MaximumObservedContentBytes,
+        [int64]$FinalStorage.content_bytes
+    )
 
     $Phase = 'evidence_collection'
     if ($Desktop -and -not $Desktop.HasExited) {
@@ -318,9 +542,15 @@ try {
     $UiStalls = @(Get-Content -LiteralPath $DesktopStderr | ForEach-Object {
         if ($_ -match '^START010_UI_STALL_MILLIS=(\d+)$') { [double]$Matches[1] }
     })
-    $ResourceEvidence = @(Read-PrefixedJson $AgentStderr 'LOCALSEARCH_RESOURCE_JSON=')
-    $GovernorEvidence = @(Read-PrefixedJson $AgentStderr 'LOCALSEARCH_GOVERNOR=')
-    $SearchStageEvidence = @(Read-PrefixedJson $AgentStderr 'LOCALSEARCH_SEARCH_JSON=')
+    $ResourceEvidence = @($AgentLogPaths | ForEach-Object {
+        Read-PrefixedJson $_ 'LOCALSEARCH_RESOURCE_JSON='
+    })
+    $GovernorEvidence = @($AgentLogPaths | ForEach-Object {
+        Read-PrefixedJson $_ 'LOCALSEARCH_GOVERNOR='
+    })
+    $SearchStageEvidence = @($AgentLogPaths | ForEach-Object {
+        Read-PrefixedJson $_ 'LOCALSEARCH_SEARCH_JSON='
+    })
     $UnavailableResourceSamples = @($ResourceEvidence | Where-Object {
         $_.sample_available -eq $false
     }).Count
@@ -343,6 +573,10 @@ try {
     $SearchP50 = Get-NearestRank $SearchData 50
     $SearchP95 = Get-NearestRank $SearchData 95
     $SearchP99 = Get-NearestRank $SearchData 99
+    $ContentSearchData = [double[]]$ContentSearchLatencies
+    $ContentSearchP50 = Get-NearestRank $ContentSearchData 50
+    $ContentSearchP95 = Get-NearestRank $ContentSearchData 95
+    $ContentSearchP99 = Get-NearestRank $ContentSearchData 99
     $FocusMillis = @($FocusMicros | ForEach-Object { $_ / 1000.0 })
     $FocusP50 = Get-NearestRank $FocusMillis 50
     $FocusP95 = Get-NearestRank $FocusMillis 95
@@ -365,9 +599,50 @@ try {
         $HotkeyIntervalMilliseconds * 0.75))
     $MinimumDesktopSearchSamples = [Math]::Max(20, [Math]::Floor($DurationSeconds * 1000 /
         $UiInputIntervalMilliseconds * 0.75))
+    $MinimumContentSearchSamples = if ($EnableContent) {
+        $MinimumSearchSamples
+    } else { 0 }
     $UnsafeIdleBoostTransitions = @($GovernorEvidence | Where-Object {
         $_.mode -eq 'idle_boost'
     }).Count
+    $InputMutationsPerSecond = if ([double]$ChurnResult.duration_millis -gt 0) {
+        [double]$ChurnResult.provider_events /
+            ([double]$ChurnResult.duration_millis / 1000.0)
+    } else { 0.0 }
+    $RestartReport = @($RestartEvidence | ForEach-Object {
+        $DrainSeconds = [Math]::Max(0.001, [double]$_.drain_milliseconds / 1000.0)
+        $NetDrainPerSecond = [double]$_.recovered_mutations / $DrainSeconds
+        [ordered]@{
+            ordinal = [int]$_.ordinal
+            outage_seconds = [int]$_.outage_seconds
+            backlog_before_recovery = [int64]$_.backlog_before_recovery
+            backlog_after_recovery = [int64]$_.backlog_after_recovery
+            recovered_mutations = [int64]$_.recovered_mutations
+            ready_milliseconds = [int64]$_.ready_milliseconds
+            drain_milliseconds = [int64]$_.drain_milliseconds
+            net_drain_mutations_per_second = $NetDrainPerSecond
+            recovery_headroom = if ($InputMutationsPerSecond -gt 0) {
+                $NetDrainPerSecond / $InputMutationsPerSecond
+            } else { $null }
+            pass = [bool]$_.pass
+        }
+    })
+    $RestartsPass = (
+        $RestartReport.Count -eq $AgentRestartCount -and
+        @($RestartReport | Where-Object { -not $_.pass }).Count -eq 0
+    )
+    $StoragePass = (
+        $MaximumObservedGraphBytes -le $MaximumGraphBytes -and
+        $MaximumObservedContentBytes -le $MaximumContentIndexBytes
+    )
+    $ContentPass = (
+        -not $EnableContent -or (
+            $ContentSearchLatencies.Count -ge $MinimumContentSearchSamples -and
+            $ContentSearchErrors -eq 0 -and
+            $ContentSearchP95 -le 150 -and
+            $ContentSearchP99 -le 300
+        )
+    )
     $Pass = $SearchLatencies.Count -ge $MinimumSearchSamples -and
         $FocusMicros.Count -ge $MinimumHotkeySamples -and
         $DesktopSearch.Count -ge $MinimumDesktopSearchSamples -and
@@ -378,6 +653,9 @@ try {
         $MaximumBacklog -le 10000 -and
         $UnavailableResourceSamples -eq 0 -and
         $UnsafeIdleBoostTransitions -eq 0 -and
+        $ContentPass -and $RestartsPass -and $StoragePass -and
+        [bool]$Convergence.converged -and
+        $DrainTimer.Elapsed.TotalSeconds -le $DrainTimeoutSeconds -and
         -not $ChurnDeadlineExceeded -and
         [int64]$ChurnResult.filesystem_operations -gt 0 -and
         $CleanupCompleted -and -not $Dirty
@@ -398,6 +676,10 @@ try {
             ui_input_interval_milliseconds = $UiInputIntervalMilliseconds
             ui_dispatch_grace_milliseconds = $UiDispatchGraceMilliseconds
             hotkey_interval_milliseconds = $HotkeyIntervalMilliseconds
+            agent_restart_count = $AgentRestartCount
+            restart_outage_seconds = $RestartOutageSeconds
+            drain_timeout_seconds = $DrainTimeoutSeconds
+            content_enabled = [bool]$EnableContent
         }
         workload = $ChurnResult
         cli_search = [ordered]@{
@@ -406,6 +688,14 @@ try {
             p50_ms = $SearchP50
             p95_ms = $SearchP95
             p99_ms = $SearchP99
+        }
+        content_search = [ordered]@{
+            enabled = [bool]$EnableContent
+            samples = $ContentSearchLatencies.Count
+            errors = $ContentSearchErrors
+            p50_ms = $ContentSearchP50
+            p95_ms = $ContentSearchP95
+            p99_ms = $ContentSearchP99
         }
         desktop_search = [ordered]@{
             samples = $DesktopSearch.Count
@@ -426,6 +716,33 @@ try {
             maximum_backlog_mutations = $MaximumBacklog
             final_backlog_mutations = [int64]$FinalStatus.result.value.backlog_mutations
             maximum_projection_ms = [double]$ChurnResult.maximum_projection_micros / 1000.0
+            final_drain_milliseconds = [int64]$DrainTimer.ElapsedMilliseconds
+            input_mutations_per_second = $InputMutationsPerSecond
+            restarts = $RestartReport
+        }
+        convergence = [ordered]@{
+            desired_documents = [int64]$Convergence.desired_documents
+            indexed_documents = [int64]$Convergence.indexed_documents
+            duplicate_documents = [int64]$Convergence.duplicate_documents
+            payloads_match = [bool]$Convergence.payloads_match
+            converged = [bool]$Convergence.converged
+        }
+        storage = [ordered]@{
+            maximum_graph_bytes = $MaximumGraphBytes
+            maximum_content_index_bytes = $MaximumContentIndexBytes
+            initial = $InitialStorage
+            final = $FinalStorage
+            maximum_observed = [ordered]@{
+                graph_bytes = $MaximumObservedGraphBytes
+                catalog_bytes = $MaximumObservedCatalogBytes
+                content_bytes = $MaximumObservedContentBytes
+            }
+            graph_growth_bytes = [int64]$FinalStorage.graph_bytes -
+                [int64]$InitialStorage.graph_bytes
+            catalog_growth_bytes = [int64]$FinalStorage.catalog_bytes -
+                [int64]$InitialStorage.catalog_bytes
+            content_growth_bytes = [int64]$FinalStorage.content_bytes -
+                [int64]$InitialStorage.content_bytes
         }
         resources = [ordered]@{
             samples = $ResourceEvidence.Count
@@ -460,13 +777,18 @@ try {
             search_p95_at_most_75_ms = ($SearchP95 -le 75)
             hotkey_p95_below_100_ms = ($FocusP95 -lt 100)
             no_search_failures = ($SearchErrors -eq 0 -and $DesktopFailures -eq 0)
+            content_search_sla = $ContentPass
             desktop_search_samples_sufficient = (
                 $DesktopSearch.Count -ge $MinimumDesktopSearchSamples
             )
             no_stale_results_rendered = $true
             no_ui_stalls_over_100_ms = ($UiStalls.Count -eq 0)
             final_backlog_drained = ([int64]$FinalStatus.result.value.backlog_mutations -eq 0)
+            final_drain_bounded = ($DrainTimer.Elapsed.TotalSeconds -le $DrainTimeoutSeconds)
             backlog_remained_bounded = ($MaximumBacklog -le 10000)
+            planned_restarts_recovered = $RestartsPass
+            catalog_converged_without_duplicates = [bool]$Convergence.converged
+            storage_within_limits = $StoragePass
             resource_telemetry_continuous = ($UnavailableResourceSamples -eq 0)
             no_unsafe_idle_boost = ($UnsafeIdleBoostTransitions -eq 0)
             supervisor_deadline_respected = (-not $ChurnDeadlineExceeded)

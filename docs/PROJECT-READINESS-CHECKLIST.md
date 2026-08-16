@@ -67,7 +67,8 @@ evidence incomplete, `[ ]` not complete.
 - [x] Agent restart reconnect.
 - [x] Measured 150% hotkey p95 `7.658 ms` against `< 100 ms`.
 - [~] `START-010-U` real-filesystem action fixture implemented.
-- [~] `START-010-L` sustained-load fixture and fail-fast process supervisor implemented.
+- [~] `START-010-L`/`LOAD-GATE-001` sustained catalog/content fixture, forced Agent restart
+  recovery, convergence fingerprint, storage bounds, and fail-fast supervisor implemented.
 - [x] Process-supervisor self-test: success, quoting, invalid JSON, deadline, and kill path.
 - [x] Non-elevated release bundle with commit/SHA-256/length provenance for elevated UX evidence.
 - [x] Provenance self-test rejects executable tampering and commit mismatch.
@@ -100,6 +101,8 @@ evidence incomplete, `[ ]` not complete.
 - [ ] Real battery / energy-saver-on physical evidence.
 - [ ] Clean sustained-load proof that interactive SLA is preserved.
 - [ ] Recovery headroom `>= 2x` without violating interactive SLA.
+- [~] `LOAD-GATE-001` controller and redacted verdict contract implemented; elevated 15-minute
+  physical run pending.
 - [ ] `START-011-PASS` and tag.
 
 ## Packaging, security, and operations
@@ -120,6 +123,8 @@ evidence incomplete, `[ ]` not complete.
   and running state at controlled failure points.
 - [x] `OPS-GATE-001` controller covers fresh install, repair, two forced rollbacks, upgrade,
   both retention modes, orphan checks, ACLs, and redacted evidence.
+- [x] `LOAD-GATE-001` controller combines content/catalog churn, two Agent restarts, bounded drain,
+  exact convergence, interactive SLA, storage ceilings, and a redacted verdict.
 - [~] Guarded install, repair, upgrade, binary rollback, and uninstall implemented; physical matrix
   pending.
 - [x] Explicit `KeepIndexes` / marker-guarded `RemoveIndexes` uninstall contract.
@@ -140,10 +145,10 @@ evidence incomplete, `[ ]` not complete.
 | Backend correctness and recovery | `94/100` | production-like invariants; measured performance debt remains |
 | API/MCP/service engineering | `92/100` | headless product works; installer/SCM security evidence remains |
 | Desktop engineering | `86/100` | implementation is strong; physical UX matrix remains conditional |
-| Resource adaptation | `79/100` | policy and live telemetry implemented; two power rows/load gate remain |
-| Packaging/security/release | `74/100` | transactional lifecycle automation passes; signed artifact and physical evidence remain |
-| Overall engineering completeness | `93/100` | core, content, security policy, and operational automation are complete |
-| Public release readiness | `78/100` | dominated by physical UX/load, second-user security, and signed release evidence |
+| Resource adaptation | `84/100` | unified recovery/SLA gate implemented; physical load and two power rows remain |
+| Packaging/security/release | `76/100` | lifecycle/load automation passes; signed artifact and physical evidence remain |
+| Overall engineering completeness | `95/100` | core, content, security, operational, and load-gate automation are complete |
+| Public release readiness | `80/100` | dominated by physical OPS/UX/load, second-user security, and signed release evidence |
 
 Scores are planning estimates, not substitutes for the binary gates above. No unchecked release
 row may be treated as complete because an adjacent engineering prototype passed.
