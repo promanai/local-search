@@ -6,7 +6,8 @@ function Get-Start010ExpectedExecutables {
         'target/release/localsearch-cli.exe',
         'target/release/localsearch-content-index.exe',
         'target/release/localsearch-desktop.exe',
-        'target/release/localsearch-ux-fixture.exe'
+        'target/release/localsearch-ux-fixture.exe',
+        'target/release/examples/ux_action_probe.exe'
     )
 }
 

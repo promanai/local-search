@@ -44,9 +44,10 @@ VHDX, not the synthetic benchmark catalog:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File .\benchmarks\run-start-010-real-fs-ux.ps1 `
+  -File .\benchmarks\invoke-ux-action-gate.ps1 `
   -Volume 'L:\' `
-  -VhdxPath 'C:\Projects\local_search\.lab\localsearch-usn-test.vhdx'
+  -VhdxPath 'C:\Projects\local_search\.lab\localsearch-usn-test.vhdx' `
+  -ConfirmDisposableVolume
 ```
 
 - Search a file, rename or move it through the provider, then invoke Copy path and Open. The action

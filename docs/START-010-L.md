@@ -143,7 +143,7 @@ argument quoting, invalid-output rejection, and bounded timeout/kill behavior. A
 `start-010-l-failure-<run>.json` with a bounded reason code, phase, and exception category but no
 query, path, document ID, or raw native error.
 
-The separate provenance self-test creates a synthetic five-executable bundle, proves the valid
+The separate provenance self-test creates a synthetic six-executable bundle, proves the valid
 path, then proves that both byte tampering and commit mismatch fail closed. The accepted live report
 embeds the verified relative-path hashes and Rust toolchain identity.
 

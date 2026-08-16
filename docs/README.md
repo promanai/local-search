@@ -45,5 +45,6 @@
 | [Project readiness checklist](PROJECT-READINESS-CHECKLIST.md) | Complete v0.1 implementation, evidence, debt, and release checklist |
 | [UX-GATE-001 result](UX-GATE-001-RESULT.md) | Measured hotkey/focus evidence and remaining physical UX validation |
 | [UX-GATE-001 checklist](UX-GATE-001-CHECKLIST.md) | Repeatable scaling, live-action, load, and Narrator evidence procedure |
+| [UX-ACTION-GATE-001](UX-ACTION-GATE-001.md) | Provenance-bound VHDX rename/move/delete/offline action evidence and redacted verdict |
 
 Cross-cutting authority remains in [ARCHITECTURE.md](../ARCHITECTURE.md). Work sequencing and definition of done remain in [IMPLEMENTATION_PLAN.md](../IMPLEMENTATION_PLAN.md).

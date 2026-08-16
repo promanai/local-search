@@ -66,7 +66,8 @@ evidence incomplete, `[ ]` not complete.
 - [x] Current `DocumentId` re-resolution before Open/Open folder/Copy path.
 - [x] Agent restart reconnect.
 - [x] Measured 150% hotkey p95 `7.658 ms` against `< 100 ms`.
-- [~] `START-010-U` real-filesystem action fixture implemented.
+- [~] `START-010-U` real-filesystem action fixture and `UX-ACTION-GATE-001` provenance-bound,
+  fail-closed redacted verdict implemented; elevated VHDX evidence pending.
 - [~] `START-010-L`/`LOAD-GATE-001` sustained catalog/content fixture, forced Agent restart
   recovery, convergence fingerprint, storage bounds, and fail-fast supervisor implemented.
 - [x] Process-supervisor self-test: success, quoting, invalid JSON, deadline, and kill path.
@@ -125,6 +126,8 @@ evidence incomplete, `[ ]` not complete.
   both retention modes, orphan checks, ACLs, and redacted evidence.
 - [x] `LOAD-GATE-001` controller combines content/catalog churn, two Agent restarts, bounded drain,
   exact convergence, interactive SLA, storage ceilings, and a redacted verdict.
+- [x] `UX-ACTION-GATE-001` controller binds live rename/move/delete/offline evidence to six hashed
+  release binaries and emits a path/identity-free verdict.
 - [~] Guarded install, repair, upgrade, binary rollback, and uninstall implemented; physical matrix
   pending.
 - [x] Explicit `KeepIndexes` / marker-guarded `RemoveIndexes` uninstall contract.
