@@ -39,6 +39,7 @@
 | [START-016-BOUNDED-VOLUME-REFRESH](START-016-BOUNDED-VOLUME-REFRESH.md) | Graph schema v4 restart-safe bounded fan-out for volume state and reconciliation |
 | [START-017-BROKER-USN-OBSERVATION](START-017-BROKER-USN-OBSERVATION.md) | Opt-in Agent/broker full-volume bootstrap, resumable USN polling, and bounded gap recovery |
 | [START-018-WINDOWS-PACKAGING](START-018-WINDOWS-PACKAGING.md) | Reproducible signed/unsigned bundle policy, guarded install lifecycle, retention, and redacted diagnostics |
+| [OPS-GATE-001](OPS-GATE-001.md) | Transactional repair/upgrade rollback and disposable-VM lifecycle evidence |
 | [DEPENDENCY-AUDIT-001](DEPENDENCY-AUDIT-001.md) | Locked source/license allowlist, recurring RustSec audit, and informational-advisory triage |
 | [Project readiness checklist](PROJECT-READINESS-CHECKLIST.md) | Complete v0.1 implementation, evidence, debt, and release checklist |
 | [UX-GATE-001 result](UX-GATE-001-RESULT.md) | Measured hotkey/focus evidence and remaining physical UX validation |

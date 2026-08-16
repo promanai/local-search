@@ -15,6 +15,7 @@ The v0.1 implementation includes:
 The project is in release hardening. Core engineering gates and the fail-closed multi-user policy
 pass, while physical Windows lifecycle, long-running load, second-user isolation, signed-artifact,
 and UX evidence remain conditional. No prebuilt release artifact is published yet.
+Transactional Windows repair/upgrade rollback and its disposable-VM evidence runner are implemented.
 
 ## Build and verify
 

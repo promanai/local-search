@@ -1,6 +1,7 @@
 # START-018: Windows package and operational lifecycle
 
-Status: **engineering implementation PASS; signed-artifact and elevated lifecycle evidence pending**
+Status: **transactional engineering implementation PASS; signed-artifact and elevated lifecycle
+evidence pending**
 
 This milestone turns the release binaries into a reproducible Windows bundle and defines guarded
 install, repair, upgrade, uninstall, autostart, broker, retention, and diagnostics operations. It
@@ -42,10 +43,11 @@ and registers:
 - `LocalSearch Agent` and `LocalSearch Desktop` as limited, interactive per-user logon tasks;
 - bounded SCM restart recovery for the broker.
 
-Repair and upgrade stop existing tasks and the broker before replacing binaries, wait for SCM
-deletion to complete, and keep a temporary binary rollback copy. Fresh-install copy failure removes
-only allowlisted files beneath the newly created exact root. No recursive cleanup is authorized by
-an inferred path, filesystem root, or copied marker.
+Repair and upgrade snapshot existing task XML/state and service configuration, complete a payload
+backup before runtime mutation, then replace the candidate. Any failure removes the partial runtime
+and restores payloads, detached signature, install marker, tasks, service, and prior running state.
+A fresh-install failure removes only the exact roots proven absent before the operation. No
+recursive cleanup is authorized by an inferred path, filesystem root, or copied marker.
 
 Review an install plan without elevation or mutation:
 
@@ -116,8 +118,10 @@ content are absent.
 
 ## Remaining release evidence
 
-The current shell is non-elevated and no release code-signing certificate is available. Therefore
-these rows remain physical/release gates rather than inferred PASS results:
+The reusable lifecycle controller is specified in [`OPS-GATE-001`](OPS-GATE-001.md) and implemented
+by `packaging/invoke-ops-gate.ps1`. The current shell is non-elevated and no trusted release
+code-signing certificate is available. Therefore these rows remain physical/release gates rather
+than inferred PASS results:
 
 1. execute clean install, repair, upgrade, forced-failure rollback, and both uninstall modes on a
    disposable Windows VM;
